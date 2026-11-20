@@ -1,0 +1,62 @@
+{
+ "item_bfury": {
+  "at": "26.10.2026 03:19",
+  "cost": 3900
+ },
+ "item_black_king_bar": {
+  "at": "из прежнего конфига",
+  "cost": 4050
+ },
+ "item_book_str": {
+  "at": "из прежнего конфига",
+  "cost": 500
+ },
+ "item_butterfly": {
+  "at": "из прежнего конфига",
+  "cost": 5450
+ },
+ "item_greater_crit": {
+  "at": "из прежнего конфига",
+  "cost": 5200
+ },
+ "item_hand_of_midas_custom": {
+  "at": "16.11.2026 00:32",
+  "cost": 1700
+ },
+ "item_helm_of_the_overlord_custom": {
+  "at": "26.10.2026 07:46",
+  "cost": 5000
+ },
+ "item_lesser_crit": {
+  "at": "из прежнего конфига",
+  "cost": 2000
+ },
+ "item_mage_destroyer": {
+  "at": "12.11.2026 06:22",
+  "cost": 6650
+ },
+ "item_moon_aghanim": {
+  "at": "из прежнего конфига",
+  "cost": 6000
+ },
+ "item_moon_sange": {
+  "at": "из прежнего конфига",
+  "cost": 4200
+ },
+ "item_refresher_custom": {
+  "at": "11.11.2026 23:46",
+  "cost": 5000
+ },
+ "item_satanic": {
+  "at": "05.11.2026 03:38",
+  "cost": 5251
+ },
+ "item_veil_desolator_custom": {
+  "at": "из прежнего конфига",
+  "cost": 4500
+ },
+ "item_vladmir": {
+  "at": "из прежнего конфига",
+  "cost": 2200
+ }
+}

@@ -1,0 +1,18 @@
+settings/local.json
+
+heroes/*.json
+!heroes/standard.json
+
+logs/
+
+gamefiles/
+
+# Сборка exe
+build/
+dist/
+*.spec
+WoDOTA.exe
+
+# Python
+__pycache__/
+*.pyc
