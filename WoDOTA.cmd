@@ -1,6 +1,27 @@
 @echo off
-rem Ð—Ð°Ð¿ÑƒÑÐº Ð¿ÑƒÐ»ÑŒÑ‚Ð° Ð´Ð²Ð¾Ð¹Ð½Ñ‹Ð¼ ÐºÐ»Ð¸ÐºÐ¾Ð¼. Ð‘Ð¾Ñ‚ Ð¿Ñ€Ð¸ ÑÑ‚Ð¾Ð¼ Ð²Ñ‹ÐºÐ»ÑŽÑ‡ÐµÐ½ â€”
-rem Ð²ÐºÐ»ÑŽÑ‡Ð°ÐµÑ‚ÑÑ ÐºÐ½Ð¾Ð¿ÐºÐ¾Ð¹ Ð½Ð° ÑÑ‚Ñ€Ð°Ð½Ð¸Ñ†Ðµ.
+rem ‡ ¯ãáª ¯ã«ìâ  ¤¢®©­ë¬ ª«¨ª®¬. ®â ¯à¨ íâ®¬ ¢ëª«îç¥­ -
+rem ¢ª«îç ¥âáï ª­®¯ª®© ­  áâà ­¨æ¥.
 cd /d "%~dp0"
-py -X utf8 app\wodota.py %*
+
+set "PY=py -X utf8"
+where py >nul 2>nul || set "PY=python -X utf8"
+
+%PY% -c "import sys" >nul 2>nul
+if errorlevel 1 (
+  echo.
+  echo Python ­¥ ­ ©¤¥­. ®áâ ¢ì ¥£® á python.org
+  echo ¨ ¯à¨ ãáâ ­®¢ª¥ ®â¬¥âì "Add python.exe to PATH".
+  echo.
+  pause
+  exit /b 1
+)
+
+%PY% -c "import PIL" >nul 2>nul
+if errorlevel 1 (
+  echo ‘â ¢«î ¡¨¡«¨®â¥ªã Pillow, íâ® ®¤¨­ à §...
+  %PY% -m pip install -r requirements.txt
+  echo.
+)
+
+%PY% app\wodota.py %*
 pause

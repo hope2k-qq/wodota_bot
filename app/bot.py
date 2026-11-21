@@ -478,6 +478,10 @@ def wave_watcher(gsi, st, stop):
     while not stop.wait(WAVE.get("poll_s", 1.0)):
         try:
             track_waves(gsi, st)
+            why = party_lost(st)
+            if why:
+                st["party_lost"] = why
+                return
             wave_f1(st, "волне")
             track_bkb(gsi, st)
             track_death(gsi, st)
@@ -2314,22 +2318,63 @@ def party_ready():
 
 
 def party_sync():
-    """Собраться в лобби. Ставит PRESS_SERVER и TOGETHER."""
+    """Собраться в лобби. Ставит PRESS_SERVER и TOGETHER.
+
+    Зовём напарника только когда оба правда в лобби: «я в лобби»
+    говорится не по факту захода, а по зелёной кнопке на экране. Иначе
+    приглашение уходит в ещё не прорисованный интерфейс, и дальше у
+    обоих идёт мимо.
+    """
     global PRESS_SERVER, TOGETHER
     PRESS_SERVER, TOGETHER = True, False
     if not party_on():
         return False
     conf = party.conf_of(cfg)
-    if not at_server_screen():
-        wait_for(at_server_screen,
-                 float(conf.get("lobby_wait_s") or 60),
-                 "зелёную кнопку в лобби")
+    ready = at_server_screen() or wait_for(
+        at_server_screen, float(conf.get("lobby_wait_s") or 60),
+        "зелёную кнопку в лобби")
+    if not ready:
+        log("пати: лобби так и не прорисовалось — в этот раз играю соло")
+        return False
     set_lobby_mode(conf.get("size") or "duo")
     PARTY.hero = cfg.get("hero_file") or cfg.get("hero") or ""
     together, press = party.handshake(PARTY, conf, party_invite,
                                       party_accept, guard)
     PRESS_SERVER, TOGETHER = press, together
     return together
+
+
+def party_lost(st):
+    """Выпал ли напарник посреди матча.
+
+    Двое играют один матч: если у одного вылетела игра или перезапустился
+    бот, второму в этом матче делать нечего — выходим и заходим заново
+    вместе. Признака два: напарника не слышно совсем или он уже начал
+    новый круг, то есть вернулся в лобби без нас.
+    """
+    if not party_on() or not TOGETHER:
+        return ""
+    conf = party.conf_of(cfg)
+    if not conf.get("rejoin_together", True):
+        return ""
+    gap = float(conf.get("lost_s") or 60)
+    if not PARTY.alive():
+        quiet = time.time() - (PARTY.peer_at or 0)
+        if quiet > gap:
+            return "напарника не слышно %d с" % round(quiet)
+        return ""
+    was = st.get("peer_cycle")
+    if was is not None and PARTY.peer_cycle != was:
+        return "напарник пошёл заходить заново — похоже, вылетел"
+    return ""
+
+
+def leave_match(why):
+    """Выйти из матча в меню: дальше общий цикл зайдёт заново."""
+    log("выхожу из матча: %s" % why)
+    with core.INPUT_LOCK:
+        core.console_command("disconnect", cfg["launch"]["console_key"])
+    time.sleep(3)
 
 
 def party_step(pick, label):
@@ -2356,8 +2401,14 @@ def party_step(pick, label):
 
 def launch_game(gsi):
     if not core.focus_dota():
-        log("окно Dota не найдено — запусти игру")
-        return False
+        log("окно Dota не найдено — поднимаю игру через Steam")
+        if not machine.start_dota():
+            log("Dota не поднялась — проверь Steam")
+            return False
+        nap(WATCH.get("after_restart_s", 60), "даю игре выйти в меню")
+        if not core.focus_dota():
+            log("окно Dota так и не появилось")
+            return False
     if at_server_screen():
         log("лобби аркады уже открыто — работаю прямо с экрана")
         return True
@@ -2552,8 +2603,6 @@ def run_pregame(gsi):
             log("нет координат (%s) — сделай сам: %s" % (pick, label))
             continue
 
-        if pick == "server_pick":
-            set_lobby_mode()
         before = gsi.state
         for attempt in range(1, tries + 1):
             guard()
@@ -2561,6 +2610,8 @@ def run_pregame(gsi):
                 log("%s: экран так и не появился" % label)
                 break
             time.sleep(settle)
+            if pick == "server_pick":
+                set_lobby_mode()
             log("%s   (сейчас состояние %s)" % (label, before or "?"))
             with core.INPUT_LOCK:
                 core.click(*CO[pick])
@@ -2651,6 +2702,7 @@ def run_match(gsi, done=0, bought=0):
     log("матч пошёл")
     st = {"autocast": False, "ability_level": 0, "done": done, "learned": 0,
           "t0": time.time(), "bought": bought}
+    st["peer_cycle"] = PARTY.peer_cycle if party_on() else None
     announced = False
     st["gsi"] = gsi
     stop = threading.Event()
@@ -2663,6 +2715,8 @@ def run_match(gsi, done=0, bought=0):
     finally:
         stop.set()
         match_summary(st)
+        if st.get("party_lost"):
+            leave_match(st["party_lost"])
 
 
 def match_over(gsi, st):
@@ -2671,6 +2725,8 @@ def match_over(gsi, st):
     Одного «вернулись в меню» мало: на экране итогов игра продолжает слать
     и map, и hero, и бот может простоять там сколько угодно.
     """
+    if st.get("party_lost"):
+        return "напарник выпал: %s" % st["party_lost"]
     if gsi.in_menu:
         return "вернулись в лобби"
     if not gsi.fresh:
@@ -3258,8 +3314,9 @@ def mode_run(limit=None):
                     log("зайти в игру не удалось (%d из %d)" % (fails, max_fails))
                     if fails >= max_fails:
                         raise Fatal("не смог зайти в кастомку %d раза подряд" % fails)
-                log("пауза 15 секунд перед следующей партией")
-                time.sleep(15)
+                pause = WATCH.get("between_matches_s", 30)
+                log("пауза %d секунд перед следующей партией" % pause)
+                time.sleep(pause)
             elif gsi.state == "GAME_IN_PROGRESS":
                 stuck_since = None
                 st_once.clear()

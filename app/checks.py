@@ -124,6 +124,24 @@ def party_token(fix=True):
                   "перенеси тот же пароль на второй ПК")
 
 
+def build_ready(conf):
+    """Выбран ли настоящий билд, а не образец из поставки."""
+    name = conf.get("hero_file") or conf.get("hero") or ""
+    plan = (conf.get("talents") or {}).get("plan") or []
+    if name == "standard":
+        return False, ("выбран образец standard — сделай билд под своего "
+                       "героя: на пульте «Настройки», раздел «Герои», "
+                       "кнопка «Новый билд»")
+    bits = []
+    if not conf.get("gsi_name"):
+        bits.append("не задан герой")
+    if not plan:
+        bits.append("пустой план талантов")
+    if not bits:
+        return True, ""
+    return False, "в билде %s %s" % (name, " и ".join(bits))
+
+
 def hero_point(conf):
     """Снята ли точка пика у выбранного билда под текущий экран."""
     name = conf.get("hero_file") or conf.get("hero") or ""
@@ -203,6 +221,7 @@ def checklist(conf=None, fix=True):
            ("options",) + dota_options(),
            ("window",) + dota_window(),
            ("screen",) + screen_profile(conf),
+           ("build",) + build_ready(conf),
            ("hero",) + hero_point(conf)]
     out += [("party",) + x for x in party_ready(conf)]
     return [(key, ok, note) for key, ok, note in out if note]

@@ -176,24 +176,57 @@ class Tunnel:
         self.proc = None
         self.url = None
 
+    def where(self):
+        """Где взять cloudflared: настройки, PATH, обычные места установки.
+
+        Пустая строка в настройках раньше уезжала прямо в запуск
+        процесса, и Windows отвечала «параметр задан неверно» — пульт
+        падал на свежей машине, где туннеля просто нет.
+        """
+        want = (RCFG.get("cloudflared") or "").strip()
+        if want and os.path.exists(want):
+            return want
+        found = shutil.which("cloudflared")
+        if found:
+            return found
+        local = os.environ.get("LOCALAPPDATA", "")
+        for guess in (os.path.join(local, "Microsoft", "WinGet", "Links",
+                                   "cloudflared.exe"),
+                      r"C:\Program Files\cloudflared\cloudflared.exe",
+                      r"C:\Program Files (x86)\cloudflared\cloudflared.exe"):
+            if guess and os.path.exists(guess):
+                return guess
+        return ""
+
     def start(self):
         if not self.mode:
             return
-        exe = RCFG.get("cloudflared", "cloudflared")
+        exe = self.where()
+        if not exe:
+            print("   туннель не поднят: cloudflared не найден.")
+            print("   Пульт работает в домашней сети. Нужен адрес снаружи —")
+            print("   поставь: winget install Cloudflare.cloudflared")
+            print("   Не нужен — выключи: remote.tunnel = null в настройках.")
+            return
         if self.mode == "quick":
             cmd = [exe, "tunnel", "--url", "http://localhost:%d" % PORT]
         else:
-            cmd = [exe, "tunnel", "run", "--url", "http://localhost:%d" % PORT, self.mode]
+            cmd = [exe, "tunnel", "run", "--url",
+                   "http://localhost:%d" % PORT, self.mode]
         try:
             self.proc = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 text=True, encoding="utf-8", errors="replace", bufsize=1)
-        except FileNotFoundError:
-            print("cloudflared не найден — туннель не поднят")
+        except OSError as e:
+            print("   туннель не поднят (%s). Пульт работает в домашней "
+                  "сети." % e)
+            self.proc = None
             return
         threading.Thread(target=self._read, daemon=True).start()
 
     def _read(self):
+        if not self.proc or not self.proc.stdout:
+            return
         import re as _re
         pat = _re.compile(r"https://[a-z0-9-]+[.]trycloudflare[.]com")
         for line in self.proc.stdout:
@@ -2929,7 +2962,11 @@ def main():
     threading.Thread(target=bot.watch, daemon=True).start()
     if "--run" in sys.argv:
         bot.start([a for a in sys.argv[1:] if a != "--run"])
-    tunnel.start()
+    try:
+        tunnel.start()
+    except Exception as e:
+        print("   туннель не поднят (%s: %s)"
+              % (type(e).__name__, e))
     srv = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     home = "http://%s:%d/?k=%s" % (lan_ip(), PORT, TOKEN)
     print("\nПульт поднят. Бот выключен — включается кнопкой в шапке"
