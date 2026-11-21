@@ -65,7 +65,6 @@ BOOK = ("item_book_agi", "books")
 
 
 def decode_talents(addon):
-    """talents_list.lua зашит hex-ом — разворачиваем."""
     raw = io.open(os.path.join(addon, TALENTS_LUA),
                   encoding="utf-8", errors="replace").read()
     hexs = "".join(re.findall(r"^[0-9A-F]+$", raw, re.M))
@@ -73,12 +72,6 @@ def decode_talents(addon):
 
 
 def hero_grid(txt, hero):
-    """Дерево одного героя: ключ «дерево,ряд,колонка».
-
-    Ищем только внутри _G.herotalents: имена героев встречаются и выше,
-    в списке взаимных блокировок, и поиск по всему файлу находил там
-    пустышку вместо дерева.
-    """
     start = txt.find("_G.herotalents")
     if start < 0:
         start = 0
@@ -119,12 +112,10 @@ def hero_grid(txt, hero):
 
 
 def value(cell):
-    """Во сколько ценим талант. Общие — по таблице, свои у героя — ниже."""
     return VALUE.get(cell["icon"], OTHER)
 
 
 def plan_opening(cells):
-    """Начало в силе — по названиям талантов, в заданном порядке."""
     where = {}
     for k, v in cells.items():
         if k.startswith("%d," % STR):
@@ -139,12 +130,6 @@ def plan_opening(cells):
 
 
 def plan_agility(cells, need):
-    """План: всё дерево ловкости, ценное раньше.
-
-    На каждом шаге смотрим, что сейчас можно взять — ряд открыт,
-    требование выполнено, ранги не кончились, — и берём самое ценное.
-    Так приоритет соблюдается, а правила не нарушаются ни разу.
-    """
     bymod = {v["mod"]: k for k, v in cells.items()}
     mine = {k: v for k, v in cells.items() if k.startswith("%d," % AGI)}
     lvl = {k: 0 for k in mine}
@@ -173,7 +158,6 @@ def plan_agility(cells, need):
 
 
 def check(plan, cells, need):
-    """Пройдёт ли план по правилам. Возвращает причину отказа или None."""
     bymod = {v["mod"]: k for k, v in cells.items()}
     lvl = {k: 0 for k in cells}
     cnt = collections.Counter()

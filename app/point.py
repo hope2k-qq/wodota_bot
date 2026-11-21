@@ -36,19 +36,12 @@ def at():
 
 
 def point_text(x, y, pad):
-    """Точка в том же виде, в каком её пишет сам json: по числу на строку."""
     nl = chr(10)
     return ("[" + nl + " " * (pad + 2) + str(x) + "," + nl
             + " " * (pad + 2) + str(y) + nl + " " * pad + "]")
 
 
 def set_value(text, key, x, y, pad):
-    """Заменить значение поля "key" на точку. Старое значение — null или [...].
-
-    Без регулярных выражений: ищем поле по имени и отрезаем его значение
-    до закрывающей скобки или до запятой. Так безопаснее, чем разбирать
-    и пересобирать весь файл.
-    """
     head = '"' + key + '"'
     i = text.find(head)
     if i < 0:
@@ -69,7 +62,6 @@ def set_value(text, key, x, y, pad):
 
 
 def save_hero(keys, x, y):
-    """Точки ПКМ и ЛКМ — в блок reactions.wave_move выбранного героя."""
     hero = json.load(io.open(core.file("config.json"),
                              encoding="utf-8")).get("hero", "")
     path = core.hero_path(hero)
@@ -93,7 +85,6 @@ def save_hero(keys, x, y):
 
 
 def save_screen(key, x, y):
-    """Точка кнопки «в тайник» — в профиль экрана под текущее разрешение."""
     w = ctypes.windll.user32.GetSystemMetrics(0)
     h = ctypes.windll.user32.GetSystemMetrics(1)
     path = core.screen_path("%dx%d" % (w, h))

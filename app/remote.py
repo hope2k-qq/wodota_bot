@@ -44,7 +44,6 @@ TAIL_LINES = RCFG.get("log_lines", 25)
 
 
 def ensure_token():
-    """Токен из конфига; если нет — создаём и дописываем."""
     token = RCFG.get("token")
     if token:
         return token
@@ -67,7 +66,6 @@ TOKEN = ensure_token()
 
 
 class Bot:
-    """Дочерний процесс с ботом."""
 
     RAPID_S = 60
     MAX_RAPID = 5
@@ -96,12 +94,6 @@ class Bot:
         self.started_at = time.time()
 
     def start(self, args=()):
-        """Бот всегда стартует без ограничения по числу матчей.
-
-        Ограничение задаётся только вручную через bot.py и однажды уже
-        подвело: прогон тихо закончился на третьем матче, и компьютер
-        простоял полтора часа.
-        """
         with self.lock:
             if self.alive:
                 return "уже работает"
@@ -125,15 +117,6 @@ class Bot:
             return "остановлен"
 
     def watch(self):
-        """Поднимать бота заново, если он завершился не по нашей команде.
-
-        Бот умеет падать молча — например, когда его убивают вместе с
-        окном терминала, — и тогда компьютер просто стоит до возвращения
-        хозяина. Выключённый кнопкой не трогаем: want_running снят.
-
-        Если бот умирает сразу после старта несколько раз подряд, значит
-        дело не в случайности, и перезапуск только заспамит лог.
-        """
         while True:
             time.sleep(5)
             with self.lock:
@@ -165,11 +148,6 @@ bot = Bot()
 
 
 class Tunnel:
-    """cloudflared рядом с пультом, чтобы не держать второе окно.
-
-    quick — временный адрес *.trycloudflare.com, учётка не нужна.
-    Имя туннеля — постоянный адрес из твоей учётной записи Cloudflare.
-    """
 
     def __init__(self, mode):
         self.mode = mode
@@ -177,12 +155,6 @@ class Tunnel:
         self.url = None
 
     def where(self):
-        """Где взять cloudflared: настройки, PATH, обычные места установки.
-
-        Пустая строка в настройках раньше уезжала прямо в запуск
-        процесса, и Windows отвечала «параметр задан неверно» — пульт
-        падал на свежей машине, где туннеля просто нет.
-        """
         want = (RCFG.get("cloudflared") or "").strip()
         if want and os.path.exists(want):
             return want
@@ -246,8 +218,6 @@ tunnel = Tunnel(RCFG.get("tunnel"))
 
 
 def take_shot():
-    """Снимок экрана: уменьшенный, чтобы быстро открывался с телефона.
-    Старый файл заменяется."""
     img = core.grab([0, 0, core.SCREEN_W, core.SCREEN_H]).convert("RGB")
     if img.width > SHOT_WIDTH:
         h = round(img.height * SHOT_WIDTH / img.width)
@@ -263,12 +233,6 @@ LOG_TAIL = RCFG.get("log_page_kb", 300) * 1024
 
 
 def read_log(path=None, whole=False):
-    """Хвост лога для страницы «Логи», по умолчанию последние сотни кб.
-
-    Жмётся он и правда хорошо, но дело не в сети: за сутки файл
-    вырастает до мегабайт, и телефон кладёт их в одну <pre>. Хвоста
-    хватает всегда, а весь файл открывается ссылкой рядом.
-    """
     path = path or core.LOG_FILE
     try:
         size = os.path.getsize(path)
@@ -285,11 +249,6 @@ def read_log(path=None, whole=False):
 
 
 def home_log():
-    """Хвост лога для главной и позиция в байтах, с которой его продолжать.
-
-    Позицию считаем от того же чтения, иначе строки, дописанные между
-    чтением и замером размера, либо потерялись бы, либо пришли дважды.
-    """
     try:
         size = os.path.getsize(core.LOG_FILE)
         start = max(0, size - HOME_LOG_MAX) if HOME_LOG_MAX else 0
@@ -308,11 +267,6 @@ def home_log():
 
 
 def log_since(pos):
-    """Только то, что дописалось в лог после позиции pos.
-
-    Обрезаем по последнему переводу строки: иначе на границе куска
-    разорвался бы многобайтовый символ, и в логе появились бы кракозябры.
-    """
     try:
         size = os.path.getsize(core.LOG_FILE)
     except Exception:
@@ -339,7 +293,6 @@ def shot_stamp():
 
 
 def log_choices(active):
-    """Ссылки на все файлы логов, какие лежат рядом."""
     files = stats.log_files()
     if len(files) < 2:
         return ""
@@ -373,7 +326,6 @@ FUNC_LABEL = [
 
 
 def cur_hero():
-    """Имя выбранного билда — читаем с диска, его могли сменить на ходу."""
     return conf_view().get("hero", "")
 
 
@@ -383,11 +335,6 @@ def write_json(path, data):
 
 
 def pick_hero(name):
-    """Записать выбор в config.json.
-
-    Бот перечитывает настройки между матчами, так что начатый матч
-    доигрывается прежним билдом, а следующий начнётся уже этим.
-    """
     if name not in core.hero_files():
         return False
     if put_local("hero", name):
@@ -411,7 +358,6 @@ def set_mode(name):
 
 
 def sweep_html(conf):
-    """Обход: кого уже пробовали, кто прошёл, кто следующий."""
     diff = str(conf.get("difficulty", ""))
     tried = core.progress().get(diff) or {}
     screen = core.load_config().get("screen_file") or ""
@@ -461,12 +407,6 @@ def sweep_html(conf):
 
 
 def difficulties():
-    """Список сложностей из профиля экрана.
-
-    Сам список с координатами карточек лежит в screens/<ШxВ>.json, а
-    номер выбранной — в local.json: карточки зависят от разрешения,
-    выбор — от человека.
-    """
     return core.load_config().get("difficulties") or []
 
 
@@ -481,7 +421,6 @@ def set_difficulty(n):
 
 
 def set_func(name, key, value):
-    """Включить или выключить функцию у билда."""
     path = core.hero_path(name or cur_hero())
     data = core.read_json(path)
     if not data:
@@ -496,12 +435,6 @@ SKIP_FIELDS = ("functions", "items")
 
 
 def walk_fields(obj, prefix=""):
-    """Все настройки билда парами (путь, значение, пояснение).
-
-    Пояснения берутся из соседних ключей с подчёркиванием — тех самых
-    комментариев, что лежат в JSON. Ради них разбор и затевался: иначе
-    на телефоне видны голые числа без всякого смысла.
-    """
     out = []
     for k, v in obj.items():
         if k.startswith("_") or k in SKIP_FIELDS:
@@ -659,7 +592,6 @@ def ability_keys():
 
 
 def field_text(path, note=""):
-    """Подпись и пояснение к полю: своё из файла важнее словаря."""
     parts = path.split(".")
     if len(parts) >= 2 and parts[-2] == "max_level" and parts[-1] in SLOT_NAME:
         keys = ability_keys().get(parts[-1]) or []
@@ -673,12 +605,6 @@ def field_text(path, note=""):
 
 
 def field_html(path, val, note):
-    """Одна строка редактора.
-
-    Списки и словари показываем текстом JSON: план талантов и список
-    закупа правятся целиком, а разбивать их на сотню полей — только
-    мешать.
-    """
     name, note = field_text(path, note)
     label = html.escape(name)
     hint = ('<div class="dim">%s</div>' % html.escape(note)) if note else ""
@@ -702,12 +628,6 @@ def field_html(path, val, note):
 
 
 def apply_field(data, path, raw):
-    """Положить значение по пути, приведя его к прежнему типу.
-
-    Тип берём у того, что лежало: число останется числом, список
-    разберётся как JSON. Иначе правка с телефона тихо превратила бы
-    цену в строку, а план талантов — в текст.
-    """
     keys = path.split(".")
     node = data
     for k in keys[:-1]:
@@ -731,9 +651,6 @@ def apply_field(data, path, raw):
 
 
 def save_hero(name, fields):
-    """Сохранить правки билда. Либо всё, либо ничего: разбираем в копии
-    и пишем файл, только когда всё сошлось — иначе одна опечатка в плане
-    талантов оставила бы билд наполовину переписанным."""
     if name not in core.hero_files():
         return "нет такого билда"
     data = core.read_json(core.hero_path(name))
@@ -751,11 +668,6 @@ def save_hero(name, fields):
 
 
 class Task:
-    """Долгое действие, за которым следит страница.
-
-    Перезапуск Dota занимает под минуту: кнопка должна сразу сказать
-    «пошло», а не висеть молча, пока браузер ждёт ответа.
-    """
 
     def __init__(self):
         self.busy = False
@@ -813,7 +725,6 @@ def workshop_id():
 
 
 def game_html():
-    """Состояние игры и кнопки машины."""
     d = machine.dota_state()
     if d.get("ok"):
         if d["updating"]:
@@ -857,7 +768,6 @@ def game_html():
 
 
 def hero_options(now):
-    """Все герои кастомки для выпадающего списка."""
     out = []
     known = False
     for h in core.gamedata().get("heroes", []):
@@ -875,14 +785,6 @@ def hero_options(now):
 
 
 def items_editor(hero):
-    """Редактор закупа.
-
-    Список строк сверху вниз: что выше, покупается раньше. Название
-    выбирается из справочника, цена показывается сама, руками её не
-    вписывают. Весь список уходит на сервер одним полем items — его
-    разбирает та же проверка, что и остальные поля, так что кривой
-    ввод файл не испортит.
-    """
     rows = []
     for e in hero.get("items") or []:
         row = {k: v for k, v in e.items()
@@ -910,11 +812,6 @@ def items_editor(hero):
 
 
 def roles_html():
-    """Настройки функций закупа: что они делают и на какой клавише.
-
-    Функции общие для всех героев, поэтому и живут в общем конфиге:
-    в билде у предмета указано только имя роли и место в очереди.
-    """
     conf = core.read_json(core.file("config.json"))
     roles = conf.get("roles") or {}
     if not roles:
@@ -939,7 +836,6 @@ def roles_html():
 
 
 def save_roles(fields):
-    """Правки функций — в config.json, тем же способом, что и билд."""
     path = core.file("config.json")
     data = core.read_json(path)
     if not data:
@@ -962,13 +858,6 @@ COMMON_SKIP = ("hero", "mode", "sweep", "difficulty", "roles", "party",
 
 
 def cfg_fields(obj, prefix=""):
-    """Разделы и поля по порядку: ("sec"|"fld", путь, значение, пояснение).
-
-    От walk_fields отличается одним, но важным: раздел помечается явно,
-    а не пустым значением. Иначе поле, у которого честно стоит null —
-    та же кнопка тайника, пока её не сняли, — выглядело бы заголовком и
-    на пульте его было бы не заполнить.
-    """
     out = []
     for k, v in obj.items():
         if k.startswith("_"):
@@ -984,7 +873,6 @@ def cfg_fields(obj, prefix=""):
 
 
 def is_point(val):
-    """Похоже ли значение на точку экрана: пара чисел или пока пусто."""
     if val is None:
         return True
     return (isinstance(val, list) and len(val) == 2
@@ -992,7 +880,6 @@ def is_point(val):
 
 
 def fields_block(items, pick=False):
-    """Разделы и поля подряд. pick — добавлять кнопку снятия точки."""
     out = []
     for kind, path, val, note in items:
         if kind == "sec":
@@ -1019,7 +906,6 @@ SECRET_PATHS = ("remote.token", "remote.hostname", "remote.cloudflared",
 
 
 def conf_view():
-    """Настройки так, как их видит бот: config.json плюс local.json."""
     return core.merge(core.read_json(core.file("config.json")) or {},
                       core.read_json(LOCAL) or {})
 
@@ -1031,7 +917,6 @@ def dig(data, path):
 
 
 def put_field(target, path, raw, old):
-    """Положить значение по пути, приведя его к типу прежнего."""
     if isinstance(old, bool):
         val = str(raw).strip().lower() in ("да", "true", "1", "вкл")
     elif isinstance(old, int) and not isinstance(old, bool):
@@ -1055,12 +940,6 @@ def put_field(target, path, raw, old):
 
 
 def put_local(path, value):
-    """Записать личный выбор в local.json. True — значение поменялось.
-
-    Сюда идёт всё, что про эту машину: кого играем, на какой сложности,
-    каким режимом, в пати или один. В config.json лежат нейтральные
-    значения — он общий и уезжает в репозиторий.
-    """
     if dig(conf_view(), path) == value:
         return False
     data = core.read_json(LOCAL) or {}
@@ -1069,43 +948,44 @@ def put_local(path, value):
     return True
 
 
-def save_split(fields, guard=None):
-    """Сохранить правки, разложив их по двум файлам.
+def drop_path(data, path):
+    keys = path.split(".")
+    nodes = [data]
+    for k in keys[:-1]:
+        nxt = nodes[-1].get(k)
+        if not isinstance(nxt, dict):
+            return False
+        nodes.append(nxt)
+    if keys[-1] not in nodes[-1]:
+        return False
+    nodes[-1].pop(keys[-1])
+    for node, key in zip(reversed(nodes[:-1]), reversed(keys[:-1])):
+        if node.get(key) == {}:
+            node.pop(key)
+    return True
 
-    guard — проверка пути для конкретной страницы: вернёт текст ошибки,
-    если поле пришло не оттуда. Либо всё, либо ничего: собираем в копиях
-    и пишем, только когда всё сошлось.
-    """
-    conf_path = core.file("config.json")
-    conf = core.read_json(conf_path) or {}
+
+def save_split(fields, guard=None):
+    conf = core.read_json(core.file("config.json")) or {}
     local = core.read_json(LOCAL) or {}
     view = core.merge(conf, local)
-    c2 = json.loads(json.dumps(conf))
-    l2 = json.loads(json.dumps(local))
-    hit_conf = hit_local = False
+    copy = json.loads(json.dumps(local))
     for p, raw in fields.items():
         if guard:
             err = guard(p)
             if err:
                 return err
         try:
-            if p in SECRET_PATHS:
-                put_field(l2, p, raw, dig(view, p))
-                hit_local = True
-            else:
-                put_field(c2, p, raw, dig(view, p))
-                hit_conf = True
+            put_field(copy, p, raw, dig(view, p))
         except Exception as e:
             return "%s — %s" % (p, e)
-    if hit_conf:
-        write_json(conf_path, c2)
-    if hit_local:
-        write_json(LOCAL, l2)
+        if p not in SECRET_PATHS and dig(copy, p) == dig(conf, p):
+            drop_path(copy, p)
+    write_json(LOCAL, copy)
     return ""
 
 
 def common_html():
-    """Общие настройки из config.json — всё, у чего нет своей вкладки."""
     conf = conf_view()
     if not conf:
         return "<p>config.json не прочитан.</p>"
@@ -1131,8 +1011,6 @@ def common_html():
 
 
 def save_common(fields):
-    """Правки общих настроек. Пароли уходят в local.json, остальное
-    в config.json — какое поле откуда, решает save_split."""
     def guard(p):
         head = p.split(".")[0]
         if head in COMMON_SKIP:
@@ -1146,7 +1024,6 @@ def save_common(fields):
 
 
 def screen_profile():
-    """Какой профиль экрана сейчас в деле."""
     return core.pick_screen(conf_view().get("screen"))
 
 
@@ -1157,7 +1034,6 @@ def point_delay():
 
 
 def screen_size(name):
-    """Размер из имени профиля: 2560x1440 -> (2560, 1440)."""
     try:
         w, h = name.lower().split("x")
         return int(w), int(h)
@@ -1166,7 +1042,6 @@ def screen_size(name):
 
 
 def set_path(data, path, value):
-    """Положить значение по пути, создавая недостающие разделы."""
     node, keys = data, path.split(".")
     for k in keys[:-1]:
         if not isinstance(node.get(k), dict):
@@ -1176,11 +1051,6 @@ def set_path(data, path, value):
 
 
 def take_point(path, hero=""):
-    """Подождать, снять точку из-под курсора и разложить по профилям.
-
-    Возвращает (что куда записали, ошибка). Текущий профиль получает
-    настоящую точку, остальные — пересчитанную долей размеров.
-    """
     if hero and not path.startswith("pick_at"):
         return {}, "у билда снимается только точка пика"
     screens = [s for s in core.screen_files() if screen_size(s)[0]]
@@ -1226,7 +1096,6 @@ def take_point(path, hero=""):
 
 
 def grab_button(path, hero=""):
-    """Кнопка «снять координату» у поля с точкой."""
     return ('<button class="pick" onclick="grabPoint(this,&quot;%s&quot;,'
             '&quot;%s&quot;)">Снять координату \u00b7 %d с и курсор'
             '</button>'
@@ -1274,7 +1143,6 @@ function saveCoords(){ postFields('/savecoords?k=%(k)s'); }
 
 
 def coords_html():
-    """Координаты активного профиля экрана и снятие точек с курсора."""
     scr = screen_profile()
     if not scr:
         return "<p>Не выбран профиль экрана (config.json, screen).</p>"
@@ -1300,7 +1168,6 @@ def coords_html():
 
 
 def save_coords(fields):
-    """Правки координат — в профиль экрана, который сейчас в деле."""
     scr = screen_profile()
     if not scr:
         return "не выбран профиль экрана"
@@ -1329,7 +1196,6 @@ def party_conf():
 
 
 def set_party(on):
-    """Включить или выключить игру вдвоём."""
     if put_local("party.on", bool(on)):
         log("пати %s с пульта — со следующего матча"
             % ("включена" if on else "выключена"))
@@ -1337,7 +1203,6 @@ def set_party(on):
 
 
 def set_prole(role):
-    """Сменить роль этого ПК. Применится после перезапуска бота."""
     if role not in ROLE_NAMES:
         return False
     if put_local("party.role", role):
@@ -1346,7 +1211,6 @@ def set_prole(role):
 
 
 def party_state_html():
-    """Что бот рассказывает про связь с напарником."""
     st = party.read_state()
     if not st:
         return ("<div class='state'>Бот ещё ничего не рассказывал про пати: "
@@ -1422,8 +1286,6 @@ def party_html():
 
 
 def save_party(fields):
-    """Правки настроек пати. Пароль и id напарника — личное, они
-    уходят в local.json, остальное в config.json."""
     def guard(p):
         return ("" if p.startswith("party.")
                 else "поле %s не из настроек пати" % p)
@@ -1452,18 +1314,12 @@ TREE_NAME = {"1": "Сила", "2": "Ловкость", "3": "Интеллект"
 
 
 def talent_grid(gsi):
-    """Правила талантов героя: что в какой ячейке и когда открыт ряд."""
     d = core.read_json(core.file("talents_grid.json")) or {}
     return ((d.get("heroes") or {}).get(gsi or "") or {},
             d.get("row_need") or [])
 
 
 def plan_flat(hero):
-    """План одним списком: по записи на каждый ранг.
-
-    В файле встречается и старая запись с четвёртым числом — «столько
-    рангов подряд». Разворачиваем, чтобы редактор знал один вид.
-    """
     out = []
     for e in ((hero.get("talents") or {}).get("plan") or []):
         if len(e) < 3:
@@ -1473,7 +1329,6 @@ def plan_flat(hero):
 
 
 def talents_html(name):
-    """Страница плана: сверху порядок кликов, ниже три дерева."""
     if name not in core.hero_files():
         return "<p>Нет такого билда.</p>"
     h = core.read_json(core.hero_path(name))
@@ -1621,19 +1476,16 @@ draw();
 
 
 def gsi_title(gsi):
-    """Имя героя для списка: npc_dota_hero_drow_ranger -> Drow Ranger."""
     s = (gsi or "").replace("npc_dota_hero_", "").replace("_", " ").strip()
     return " ".join(w.capitalize() for w in s.split())
 
 
 def known_heroes():
-    """Все герои, про которых есть правила талантов."""
     d = core.read_json(core.file("talents_grid.json")) or {}
     return sorted((d.get("heroes") or {}).keys())
 
 
 def have_gsi():
-    """Герои, под которых билд уже есть."""
     out = {}
     for n in core.hero_files():
         h = core.read_json(core.hero_path(n)) or {}
@@ -1642,7 +1494,6 @@ def have_gsi():
 
 
 def newhero_html():
-    """Страница нового билда: герой, основа, имя файла."""
     busy = have_gsi()
     all_h = known_heroes()
     opts = "".join('<option value="%s">%s%s</option>'
@@ -1686,12 +1537,6 @@ def newhero_html():
 
 
 def fresh_plan(gsi):
-    """План талантов под героя: тридцать рангов в силу, дальше ловкость.
-
-    Копировать план у другого героя нельзя — дерево у каждого своё, и
-    чужие клетки попадут в пустоту. Поэтому собираем по правилам аддона
-    из talents_grid.json, той же жадностью, что и restyle_builds.py.
-    """
     try:
         import restyle_builds
     except Exception as e:
@@ -1710,7 +1555,6 @@ def fresh_plan(gsi):
 
 
 def drop_hero(name):
-    """Убрать билд из списка. Возвращает текст ошибки или пустую строку."""
     if name not in core.hero_files():
         return "нет такого билда"
     if name == "standard":
@@ -1738,15 +1582,6 @@ def drop_hero(name):
 
 
 def make_hero(gsi, src, wipe, name=""):
-    """Создать heroes/<имя>.json копией другого билда.
-
-    Берём именно копию, а не пустышку: у билда есть разделы, которых бот
-    ждёт, и собирать их с телефона по одному полю — мучение. План и
-    закуп при этом можно сразу очистить, чтобы не мешали чужие.
-
-    Имя файла своё, поэтому на одного героя можно держать несколько
-    билдов: бот различает их по файлу, а не по герою.
-    """
     if gsi not in known_heroes():
         return "", "нет такого героя в правилах талантов"
     if src not in core.hero_files():
@@ -1806,13 +1641,11 @@ function makeHero(){
 
 
 def favorites():
-    """Избранные билды. Список личный, живёт в local.json."""
     return [n for n in (conf_view().get("favorites") or [])
             if isinstance(n, str)]
 
 
 def set_fav(name, on):
-    """Добавить билд в избранные или убрать."""
     if name not in core.hero_files():
         return False
     fav = favorites()
@@ -1830,13 +1663,11 @@ def set_fav(name, on):
 
 
 def set_only_fav(on):
-    """Показывать в списке всех или только избранных. Выбор запоминается."""
     put_local("only_favorites", bool(on))
     return True
 
 
 def checks_html():
-    """Что ещё нужно от человека — тем же списком, что бот пишет в лог."""
     try:
         import checks
         items = checks.checklist()
@@ -1861,7 +1692,6 @@ def checks_html():
 
 
 def settings_html():
-    """Вкладка настроек: сложность и список билдов."""
     conf = conf_view()
     diffs = difficulties()
     now_d = conf.get("difficulty")
@@ -1946,7 +1776,6 @@ def settings_html():
 
 
 def hero_html(name):
-    """Настройки одного билда: выключатели и поля из его JSON."""
     if name not in core.hero_files():
         return "<p>Нет такого билда.</p>"
     h = core.read_json(core.hero_path(name))
@@ -2009,11 +1838,6 @@ def hero_html(name):
 
 
 def stats_html(with_hidden=False):
-    """Сводка по всем забегам плюс таблица матчей.
-
-    Удаление записи — это скрытие: сам лог не трогаем, его потом читать
-    при разборе сбоев. Скрытые можно посмотреть и вернуть.
-    """
     runs = stats.all_runs(with_hidden=with_hidden)
     nhidden = len(stats.hidden())
     if not runs:
@@ -2609,11 +2433,6 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def page(self, title, body, js=""):
-        """Страница целиком: шапка с питанием, тело, нижние вкладки.
-
-        Состояние бота кладём прямо в разметку, чтобы шапка не
-        мигала «…» первые секунды, а дальше её освежает опрос.
-        """
         tab = urllib.parse.urlparse(self.path).path.strip("/")
         self.send(PAGE % {
             "title": title, "body": body, "js": js, "k": TOKEN,
@@ -2637,7 +2456,6 @@ class Handler(BaseHTTPRequestHandler):
         return " · ".join(parts)
 
     def state(self, note="", add=None, pos=None):
-        """Состояние для страницы: она обновляет его, не перезагружаясь."""
         d = {"alive": bot.alive, "up": bot.uptime(),
              "note": self.note_text(note), "shot": shot_stamp()}
         if pos is not None:
@@ -2918,13 +2736,6 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def lan_ip():
-    """Адрес в домашней сети.
-
-    Не через gethostbyname по имени машины: тот сплошь и рядом отдаёт
-    127.0.0.1, а такую ссылку с телефона не открыть. Спрашиваем систему,
-    через какой интерфейс она пошла бы наружу — пакет при этом не
-    отправляется, соединения без установки не происходит.
-    """
     import socket
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -2944,13 +2755,6 @@ def show(url, why):
 
 
 def offer(url, why):
-    """Показать внешнюю ссылку и положить её в буфер обмена.
-
-    В буфер идёт только внешний адрес: набирать его с телефона руками,
-    вместе с токеном, — занятие на минуту, а из буфера он сразу уходит в
-    мессенджер самому себе. Домашний адрес так не нужен: дома и так всё
-    под рукой, а подменять им буфер — значит потерять нужную ссылку.
-    """
     show(url, why)
     if core.copy_clipboard(url):
         print("   %-18sскопирована в буфер обмена" % "")

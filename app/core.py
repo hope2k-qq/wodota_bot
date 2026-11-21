@@ -50,12 +50,10 @@ PLACES = {
 
 
 def file(name):
-    """Путь к файлу проекта по имени. Незнакомое имя — в корень."""
     return os.path.join(PLACES.get(name, HERE), name)
 
 
 def ensure_dirs():
-    """Папки, в которые мы пишем, должны существовать."""
     for d in (SETTINGS_DIR, DATA_DIR, LOGS_DIR):
         try:
             os.makedirs(d, exist_ok=True)
@@ -68,7 +66,6 @@ ensure_dirs()
 
 
 def make_dpi_aware():
-    """Без этого координаты поедут при масштабировании Windows."""
     try:
         ctypes.windll.user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4))
         return
@@ -136,7 +133,6 @@ def _key(scan, flags):
 
 
 def move(x, y):
-    """Курсор в абсолютную точку. SetCursorPos + SendInput — Source 2 на raw input."""
     x, y = int(round(x)), int(round(y))
     user32.SetCursorPos(x, y)
     _send(_mouse(MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE,
@@ -152,12 +148,6 @@ def cursor_pos():
 
 
 def glide(x, y, dt=0.008):
-    """Подвести курсор по дуге шагами, а не телепортом.
-
-    Мгновенный скачок — поведение, которого у живого игрока не бывает;
-    к тому же часть интерфейсов не успевает отработать наведение.
-    Длительность держим в пределах сотни миллисекунд.
-    """
     x0, y0 = cursor_pos()
     dist = max(abs(x - x0), abs(y - y0))
     steps = max(3, min(14, int(dist / 60) + 3))
@@ -169,11 +159,6 @@ def glide(x, y, dt=0.008):
 
 
 def click(x, y, settle=0.06, button="left", mods=()):
-    """Подвести и кликнуть. Пауза между подводом и кликом обязательна —
-    иначе игра берёт прошлую позицию курсора.
-    button: left | right (в магазине покупка идёт правой).
-    mods: зажать на время клика, например ("shift",) — так предмет
-    кладётся в квикбай."""
     down, up = BUTTONS[button]
     specs = [resolve_key(m) for m in mods]
     glide(x, y)
@@ -218,7 +203,6 @@ for _i, _ch in enumerate("1234567890"):
 
 
 def resolve_key(spec):
-    """Принимает 'numpad_enter', 41 или [41, true]."""
     if isinstance(spec, str):
         if spec.lower() not in KEYS:
             raise ValueError("неизвестная клавиша: %s (есть: %s)"
@@ -240,10 +224,6 @@ SC_ENTER, SC_ESC, SC_GRAVE, SC_CTRL, SC_A = 0x1C, 0x01, 0x29, 0x1D, 0x1E
 
 
 def drag(x1, y1, x2, y2, settle=0.05, steps=8):
-    """Перетащить мышью: зажать в одной точке, провести, отпустить в другой.
-    Нужно для перекладывания предметов между слотами инвентаря.
-    Движение дробится на шаги — мгновенный скачок игра за перетаскивание
-    не считает."""
     glide(x1, y1)
     time.sleep(settle)
     _send(_mouse(MOUSEEVENTF_LEFTDOWN))
@@ -257,9 +237,6 @@ def drag(x1, y1, x2, y2, settle=0.05, steps=8):
 
 
 def chord(*keys, hold=0.045):
-    """Аккорд по именам: chord('ctrl','q'), chord('alt','q'), chord('ctrl','a').
-    Модификаторы зажимаются, последняя клавиша нажимается, всё отпускается
-    в обратном порядке."""
     specs = [resolve_key(k) for k in keys]
     flags = lambda ext: KEYEVENTF_SCANCODE | (KEYEVENTF_EXTENDEDKEY if ext else 0)
     for scan, ext in specs[:-1]:
@@ -285,7 +262,6 @@ def type_text(s, per_char=0.012):
 
 
 def window_exe(hwnd):
-    """Имя exe, которому принадлежит окно, в нижнем регистре."""
     pid = wt.DWORD()
     user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
     if not pid.value:
@@ -307,12 +283,6 @@ def window_exe(hwnd):
 
 
 def find_dota():
-    """Окно Dota — и обязательно проверяем, чей это процесс.
-
-    Без проверки сюда попадало окно Steam: класс SDL_app носит и оно,
-    заголовок «Menu». При закрытой игре бот считал, что она на месте, —
-    сторож не замечал падения, а клики уходили бы в Steam.
-    """
     for finder in (lambda: user32.FindWindowW("SDL_app", "Dota 2"),
                    lambda: user32.FindWindowW(None, "Dota 2"),
                    lambda: user32.FindWindowW("SDL_app", None)):
@@ -326,7 +296,6 @@ def find_dota():
 
 
 def focus_dota():
-    """Вернёт True, если окно Dota на переднем плане."""
     h = find_dota()
     if not h:
         return False
@@ -339,9 +308,6 @@ def focus_dota():
 
 
 def console_command(cmd, key="grave"):
-    """Открыть консоль, вписать команду, выполнить, закрыть.
-    Нужен -console в параметрах запуска. key — та клавиша, на которой
-    у тебя висит консоль (у нас numpad_enter)."""
     scan, ext = resolve_key(key)
     tap(scan, extended=ext)
     time.sleep(0.6)
@@ -355,13 +321,10 @@ def console_command(cmd, key="grave"):
 
 
 def grab(box):
-    """box = [x0,y0,x1,y1] в физических пикселях."""
     return ImageGrab.grab(bbox=tuple(box))
 
 
 def white_mask(box, thr=215):
-    """Сигнатура белого текста в области. Цифры в панели белые с чёрной обводкой,
-    поэтому маска не зависит от того, что творится на фоне игрового мира."""
     im = grab(box).convert("RGB")
     w, h = im.size
     px = im.load()
@@ -396,13 +359,6 @@ def _diff(a, b):
 
 
 def wait_rendered(x, y, timeout=90, min_std=7.0, stable_s=0.8, min_wait=1.5):
-    """Ждать, пока в точке (x, y) что-то нарисуется и перестанет меняться.
-
-    Нужно потому, что game_state переключается раньше, чем появляется кнопка:
-    по состоянию судить рано, по фиксированной паузе — ненадёжно.
-    Признак готовности: область неоднородна (что-то нарисовано) и не меняется
-    между замерами (анимация доиграла).
-    """
     box = _patch(x, y)
     t0 = time.time()
     deadline = t0 + timeout
@@ -438,7 +394,6 @@ COLORS = {
 
 
 def color_frac(box, color, step=2):
-    """Доля пикселей нужного цвета в области."""
     test = COLORS[color]
     im = grab(box).convert("RGB")
     w, h = im.size
@@ -454,15 +409,6 @@ def color_frac(box, color, step=2):
 
 def wait_color(x, y, color="green", min_frac=0.18, timeout=120, stable_s=0.5,
                w=56, h=56):
-    """Ждать, пока в точке появится элемент нужного цвета.
-
-    Надёжнее ожидания «картинка устоялась»: окна с таймером обратного отсчёта
-    или подсветкой меняются постоянно и никогда не застывают.
-
-    Размер окна важен: если точка стоит по центру белой надписи на кнопке,
-    узкий квадрат наберёт почти один текст. Широкая полоса захватывает фон
-    кнопки и даёт устойчивую долю цвета.
-    """
     box = _patch(x, y, w, h)
     deadline = time.time() + timeout
     since = None
@@ -478,13 +424,6 @@ def wait_color(x, y, color="green", min_frac=0.18, timeout=120, stable_s=0.5,
 
 
 def save_shot(name, box=None, quality=70):
-    """Снимок экрана в папку autoplay — чтобы разобрать, что игра показывала
-    в момент сбоя. Возвращает путь или None.
-
-    Для .jpg жмём: на 2560x1440 PNG выходит под четыре мегабайта и
-    кодируется заметную долю секунды, а снимки снимаются посреди матча.
-    JPEG того же экрана — около сотни килобайт.
-    """
     try:
         path = os.path.join(LOGS_DIR, name)
         img = grab(box or [0, 0, SCREEN_W, SCREEN_H])
@@ -499,13 +438,11 @@ def save_shot(name, box=None, quality=70):
 
 
 def mean_bright(x, y, size=28):
-    """Средняя яркость квадратика вокруг точки."""
     v = _sample(_patch(x, y, size))
     return sum(v) / len(v)
 
 
 def wait_change(box, before, timeout_ms, poll_ms=90):
-    """Ждать, пока белая маска в области изменится. True — изменилась."""
     deadline = time.time() + timeout_ms / 1000.0
     while time.time() < deadline:
         time.sleep(poll_ms / 1000.0)
@@ -516,7 +453,6 @@ def wait_change(box, before, timeout_ms, poll_ms=90):
 
 
 class GSI:
-    """Слушает Dota на localhost и хранит последний снимок состояния."""
 
     def __init__(self, port=3100):
         self.port = port
@@ -559,13 +495,6 @@ class GSI:
             self._srv.server_close()
 
     def forget(self):
-        """Забыть последний пакет.
-
-        Нужно после перезапуска игры: в меню Dota ничего не шлёт,
-        и state продолжал бы отдавать состояние, которое пришло до
-        закрытия. Бот по нему думал, что всё ещё висит в лобби, и
-        перезапускал игру снова вместо того, чтобы зайти в неё.
-        """
         with self._lock:
             self._data = {}
             self._stamp = 0.0
@@ -585,7 +514,6 @@ class GSI:
 
     @property
     def age(self):
-        """Сколько секунд назад пришёл последний пакет. Без пакетов вообще — inf."""
         return (time.time() - self._stamp) if self._stamp else float("inf")
 
     @property
@@ -594,7 +522,6 @@ class GSI:
 
     @property
     def in_menu(self):
-        """В лобби Dota блоков map и hero нет вовсе."""
         d, _ = self.snapshot()
         return bool(d) and "map" not in d and "hero" not in d
 
@@ -605,7 +532,6 @@ class GSI:
 
 
 def load_creeps():
-    """Имена существ арены. Если файла нет, бот работает без них."""
     try:
         with open(file("creeps.json"), encoding="utf-8") as f:
             return json.load(f)
@@ -618,7 +544,6 @@ SCREENS_DIR = os.path.join(HERE, "screens")
 
 
 def screen_files():
-    """Профили экрана в screens/, без .json."""
     try:
         return sorted(n[:-5] for n in os.listdir(SCREENS_DIR)
                       if n.endswith(".json"))
@@ -631,12 +556,6 @@ def screen_path(name):
 
 
 def pick_screen(want):
-    """Какой профиль брать.
-
-    `auto` — тот, что совпал с настоящим разрешением. Иначе берём
-    названный; если его нет, всё равно пробуем угадать по экрану, чтобы
-    опечатка в имени не оставила бота совсем без координат.
-    """
     here = "%dx%d" % (SCREEN_W, SCREEN_H)
     have = screen_files()
     if want and want != "auto" and want in have:
@@ -647,7 +566,6 @@ def pick_screen(want):
 
 
 def hero_files():
-    """Имена билдов в heroes/, без .json, по алфавиту."""
     try:
         return sorted(n[:-5] for n in os.listdir(HEROES_DIR)
                       if n.endswith(".json"))
@@ -668,9 +586,6 @@ def read_json(path, default=None):
 
 
 def merge(base, over):
-    """Наложить один словарь на другой вглубь. Списки заменяются целиком:
-    план талантов или список предметов правится как единое целое, и
-    слияние их по элементам дало бы мусор."""
     out = dict(base)
     for k, v in over.items():
         if isinstance(v, dict) and isinstance(out.get(k), dict):
@@ -686,23 +601,10 @@ PROGRESS_FILE = file("progress.json")
 
 
 def progress():
-    """Кто какую сложность уже прошёл.
-
-    Ключ — номер сложности, внутри герои с числом волн и датой. Файл
-    нужен режиму обхода: пройденных больше не берём.
-    """
     return read_json(PROGRESS_FILE, {})
 
 
 def mark_result(difficulty, hero, build, waves, passed):
-    """Записать итог попытки — и удачной, и нет.
-
-    Непрошедшего тоже отмечаем, с числом попыток: в текущем круге к
-    нему больше не возвращаемся, иначе обход на нём и застрянет. Но
-    счётчик попыток и решает, когда вернуться — следующий круг берёт
-    тех, кого пробовали меньше всех. Волны храним лучшие из всех
-    заходов.
-    """
     data = progress()
     key = str(difficulty)
     row = data.setdefault(key, {})
@@ -721,7 +623,6 @@ def mark_result(difficulty, hero, build, waves, passed):
 
 
 def forget_result(difficulty, hero):
-    """Убрать запись, чтобы герой снова попал в очередь обхода."""
     data = progress()
     row = data.get(str(difficulty)) or {}
     if hero not in row:
@@ -737,17 +638,6 @@ def forget_result(difficulty, hero):
 
 
 def load_config(hero=None):
-    """Три слоя: общие настройки, профиль экрана, билд героя.
-
-    config.json — механика, одинаковая везде: тайминги, пороги, пульт.
-    screens/<ШxВ>.json — всё, что зависит от размера экрана: геометрия
-    панели талантов, точки до-матчевых экранов, карточки сложности.
-    heroes/<имя>.json — билд: что качать, что покупать, на что
-    реагировать.
-
-    Разделено так, чтобы второй монитор не требовал второго набора
-    билдов, а новый герой — переснятых координат.
-    """
     cfg = read_json(file("config.json"))
     cfg = merge(cfg, read_json(LOCAL_FILE) or {})
 
@@ -783,8 +673,6 @@ _cache = {}
 
 
 def gamedata():
-    """Герои и предметы для выпадающих списков. Пересобирается
-    отдельно: py gamedata.py."""
     if "game" not in _cache:
         _cache["game"] = read_json(GAMEDATA_FILE, {})
     return _cache["game"]
@@ -802,23 +690,12 @@ def item_title(name):
 
 
 def prices():
-    """Цены, замеренные ботом при покупках."""
     if "prices" not in _cache:
         _cache["prices"] = read_json(PRICES_FILE, {})
     return _cache["prices"]
 
 
 def learn_price(name, spent):
-    """Запомнить, сколько на самом деле стоила покупка.
-
-    В файлах кастомки настоящей цены нет: у своих предметов записана
-    цена последней ступени, у стандартных она вообще в VPK, а прайс
-    арены лежит в зашифрованном store_data.lua. Зато бот видит золото
-    до и после.
-
-    Берём максимум из замеров: пока идёт покупка, с волны капает золото,
-    и разность выходит МЕНЬШЕ настоящей цены, никогда не больше.
-    """
     if spent < 100:
         return
     p = prices()
@@ -834,12 +711,6 @@ def learn_price(name, spent):
 
 
 def item_cost(entry):
-    """Сколько золота ждать под эту покупку.
-
-    По убыванию доверия: что вписали руками, что бот сам замерил, что
-    написано в файлах кастомки. Последнее — только подсказка, это цена
-    верхней ступени, а не всего дерева.
-    """
     if entry.get("cost"):
         return int(entry["cost"])
     name = entry.get("name", "")
@@ -850,13 +721,6 @@ def item_cost(entry):
 
 
 def resolve_items(cfg):
-    """Единый список закупа -> то, с чем работает остальной код.
-
-    В билде лежит один список по порядку, у части записей стоит роль.
-    Роли общие для всех героев и описаны в config.json: как жать, чем
-    и когда. Здесь список раскладывается на обычный закуп, ролевой
-    докуп и книгу.
-    """
     roles = cfg.get("roles") or {}
     plain, late, books = [], [], None
     for e in cfg.get("items") or []:
@@ -877,7 +741,6 @@ def resolve_items(cfg):
 
 
 def abort_pressed(vk=0x7B):
-    """F12 по умолчанию — аварийный стоп."""
     return bool(user32.GetAsyncKeyState(vk) & 0x8000)
 
 
@@ -895,15 +758,6 @@ def log(msg):
 
 
 def copy_clipboard(text):
-    """Положить текст в буфер обмена Windows. True, если получилось.
-
-    Через WinAPI, а не через `clip`: тот запускает отдельный процесс,
-    перевирает кодировку и дописывает перевод строки, из-за которого
-    ссылка вставляется с лишним концом.
-
-    Типы возврата заданы явно: без них на 64-битном Python ctypes режет
-    указатели до int, и память из GlobalAlloc теряется.
-    """
     CF_UNICODETEXT, GMEM_MOVEABLE = 13, 0x0002
     k32 = ctypes.windll.kernel32
     k32.GlobalAlloc.restype = ctypes.c_void_p
@@ -945,18 +799,11 @@ def copy_clipboard(text):
 
 
 def avg_color(box):
-    """Средний цвет участка экрана, (r, g, b).
-
-    Усреднение, а не один пиксель: поверх цветных панелей Dota кладёт
-    текстуру, и соседние точки отличаются заметно, а среднее по
-    небольшому прямоугольнику стабильно.
-    """
     st = ImageStat.Stat(grab(box).convert("RGB"))
     return tuple(int(v) for v in st.mean[:3])
 
 
 def patch(box):
-    """Участок экрана как есть — чтобы потом сравнить «было/стало»."""
     return grab(box).convert("RGB")
 
 
@@ -964,11 +811,6 @@ _TEMPLATES = {}
 
 
 def template(name, scale=1.0):
-    """Образец из файла, растянутый под текущее разрешение.
-
-    Картинки HUD снимались на 1920x1080; на другом разрешении иконка
-    крупнее ровно во столько же раз, во сколько шире экран.
-    """
     key = (name, round(scale, 3))
     if key not in _TEMPLATES:
         im = Image.open(file(name)).convert("L")
@@ -980,7 +822,6 @@ def template(name, scale=1.0):
 
 
 def _scan(field, tpl, step):
-    """Лучшее место образца на поле: (x, y, расхождение) или None."""
     tw, th = tpl.size
     best = None
     for y in range(0, field.size[1] - th + 1, step):
@@ -994,19 +835,6 @@ def _scan(field, tpl, step):
 
 
 def find_patch(tpl, box, step=2, good=16):
-    """Где в участке box лежит образец tpl: (x, y, расхождение).
-
-    x, y — центр найденного места в экранных координатах. Расхождение
-    0 — точное совпадение, большое — скорее всего не нашли.
-    Перебор грубый, через шаг: иконка крупная, пары пикселей хватает,
-    зато поиск укладывается в сотые доли секунды.
-
-    Если с первого захода не похоже, пробуем ещё раз, подогнав образец
-    по средней яркости участка: пока герой мёртв, HUD полупрозрачный и
-    сквозь него светит игровой мир — рисунок тот же, а яркость уезжает
-    целиком. Вторым заходом, а не всегда, потому что на ярком фоне
-    такая подгонка наоборот мешает.
-    """
     field = grab(box).convert("L")
     best = _scan(field, tpl, step)
     if best and best[2] > good:
@@ -1024,11 +852,5 @@ def find_patch(tpl, box, step=2, good=16):
 
 
 def patch_diff(a, b):
-    """Среднее расхождение двух снимков участка, 0..255.
-
-    Нужно там, где признак — «картинка в этом месте изменилась», а не
-    какой-то конкретный цвет: маска по белому врёт, когда сквозь
-    полупрозрачную панель видно шевелящийся игровой мир.
-    """
     st = ImageStat.Stat(ImageChops.difference(a, b))
     return sum(st.mean) / len(st.mean)

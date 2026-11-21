@@ -31,7 +31,6 @@ def read(path):
 
 
 def launch_options():
-    """Параметры запуска Dota из настроек Steam. None — не нашли."""
     root = machine.steam_dir()
     if not root:
         return None
@@ -45,7 +44,6 @@ def launch_options():
 
 
 def window_mode():
-    """Как Dota запускается: окно, рамка. None — файл не найден."""
     root = machine.steam_dir()
     if not root:
         return None
@@ -74,10 +72,6 @@ def gsi_path():
 
 
 def gsi_cfg(fix=True):
-    """Конфиг GSI: на месте ли, и если нет — положить.
-
-    Возвращает (всё хорошо, что сказать человеку).
-    """
     src = core.file("gamestate_integration_wodota.cfg")
     if not os.path.exists(src):
         return False, ("нет файла data/gamestate_integration_wodota.cfg — "
@@ -105,7 +99,6 @@ def gsi_cfg(fix=True):
 
 
 def party_token(fix=True):
-    """Пароль пати: если пустой, придумать и записать в local.json."""
     conf = core.load_config()
     party = conf.get("party") or {}
     if party.get("token"):
@@ -125,7 +118,6 @@ def party_token(fix=True):
 
 
 def build_ready(conf):
-    """Выбран ли настоящий билд, а не образец из поставки."""
     name = conf.get("hero_file") or conf.get("hero") or ""
     plan = (conf.get("talents") or {}).get("plan") or []
     if name == "standard":
@@ -143,7 +135,6 @@ def build_ready(conf):
 
 
 def hero_point(conf):
-    """Снята ли точка пика у выбранного билда под текущий экран."""
     name = conf.get("hero_file") or conf.get("hero") or ""
     scr = conf.get("screen_file") or ""
     at = conf.get("pick_at")
@@ -191,7 +182,6 @@ def dota_window():
 
 
 def party_ready(conf):
-    """Что нужно для игры вдвоём, если она включена."""
     party = conf.get("party") or {}
     if not party.get("on"):
         return []
@@ -210,11 +200,6 @@ def party_ready(conf):
 
 
 def checklist(conf=None, fix=True):
-    """Что проверено: [(имя, всё хорошо, что сказать)].
-
-    В список попадает только то, о чём есть что сказать: либо бот
-    поправил сам, либо нужно от человека.
-    """
     conf = conf or core.load_config()
     out = [("gsi",) + gsi_cfg(fix),
            ("party_token",) + party_token(fix),

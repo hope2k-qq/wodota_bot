@@ -21,7 +21,6 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def ready():
-    """Есть ли всё, без чего бот не поедет. Нет — объяснить, что делать."""
     try:
         import PIL
     except ImportError:

@@ -39,16 +39,10 @@ STAGES = ("lobby", "invited", "joined", "go")
 
 
 def conf_of(cfg):
-    """Раздел party из настроек, с заглушкой, если его нет."""
     return (cfg or {}).get("party") or {}
 
 
 class Link:
-    """Связь с напарником: свой этап наружу, его этапы внутрь.
-
-    Сокет один и тот же и слушает, и отправляет: так пакет уходит с того
-    же порта, на котором нас ждут, и роутеру не надо ничего прокидывать.
-    """
 
     def __init__(self, conf, hero=""):
         self.on = bool(conf.get("on"))
@@ -154,7 +148,6 @@ class Link:
             self._take(pkt)
 
     def once(self, key, msg):
-        """Жалобу одного вида — один раз, чтобы не залить лог."""
         if not self.said.get(key):
             self.said[key] = True
             log(msg)
@@ -188,11 +181,6 @@ class Link:
 
 
     def new_cycle(self):
-        """Новый круг: свои отметки сбрасываем, чужие — нет.
-
-        Чужие сбросит сам напарник, когда объявит свой новый круг: иначе
-        тот, кто вышел в лобби первым, тёр бы отметку, которую ждёт.
-        """
         with self.lock:
             self.cycle += 1
             self.marks = []
@@ -214,7 +202,6 @@ class Link:
         return bool(self.peer) and (time.time() - self.peer_at) <= self.stale_s
 
     def wait_any(self, stages, timeout, what, tick=None):
-        """Ждать любую из отметок напарника. Возвращает имя или ''."""
         start = time.time()
         told = False
         while time.time() - start < timeout:
@@ -254,9 +241,6 @@ class Link:
             }
 
     def save(self, path=STATE_FILE):
-        """Положить состояние в файл для пульта: он отдельный процесс и в
-        сеть не слушает. Пишем только при изменениях, чтобы не тереть
-        диск раз в секунду."""
         try:
             data = self.state()
             mark = json.dumps({k: v for k, v in data.items() if k != "at"},
@@ -274,23 +258,12 @@ class Link:
 
 
 def read_state(path=STATE_FILE):
-    """Последнее состояние пати для пульта. {} — ничего не писали."""
     return core.read_json(path) or {}
 
 
 
 
 def handshake(link, conf, invite, accept, tick=None):
-    """Собрать пати в лобби. Возвращает (вместе, жать ли «найти игру»).
-
-    invite и accept — что делать руками: вписать id и нажать
-    «пригласить», нажать «принять» в окне приглашения. Они живут в боте,
-    потому что это клики по координатам экрана, а здесь — только
-    порядок: кто кого ждёт и в какой момент.
-
-    Соло возвращается с «жать самому»: не дождались напарника — значит,
-    играем как обычно, а позвать его попробуем перед следующим матчем.
-    """
     wait_s = float(conf.get("wait_s") or 300)
     accept_s = float(conf.get("accept_wait_s") or 90)
     together_press = bool(conf.get("press_together", True))
@@ -333,7 +306,6 @@ def handshake(link, conf, invite, accept, tick=None):
 
 
 def selftest(role):
-    """Два окна, подставные нажатия, два круга — без Dota и без кликов."""
     cfg = core.load_config()
     conf = dict(conf_of(cfg))
     conf.update({"on": True, "role": role})

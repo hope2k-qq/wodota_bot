@@ -48,11 +48,6 @@ def read(path):
 
 
 def parse_items(text, out=None):
-    """Блоки предметов из KV.
-
-    Один предмет встречается в файле не раз — где-то рецепт, где-то
-    описание, — поэтому поля накапливаются, а не затираются.
-    """
     out = {} if out is None else out
     depth = 0
     cur = None
@@ -81,7 +76,6 @@ def parse_items(text, out=None):
 
 
 def parse_blocks(text):
-    """Плоский разбор KV — для списка героев."""
     out = {}
     depth = 0
     cur = None
@@ -97,7 +91,6 @@ def parse_blocks(text):
 
 
 def titles(*texts):
-    """Названия предметов: сперва кастомка, потом Dota."""
     out = {}
     pat = re.compile(r'"DOTA_Tooltip_[Aa]bility_(item_[a-z_0-9]+)"\s+"([^"]+)"')
     for text in texts:
@@ -115,11 +108,6 @@ def pretty(ident, prefix):
 
 
 def build_costs(items):
-    """Полная цена каждого предмета: рецепт плюс всё, из чего он собран.
-
-    Рецепт — отдельный предмет item_recipe_*, у него поле ItemResult
-    указывает, что получается, а ItemRequirements — из чего.
-    """
     recipe_of = {}
     for name, v in items.items():
         if v.get("ItemResult"):

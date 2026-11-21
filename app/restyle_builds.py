@@ -81,18 +81,12 @@ PATTERN = ("drow_ranger", "furion")
 
 
 def value_of(cell, tree):
-    """Ценность таланта в своём дереве. Свои таланты героя — ниже общих."""
     if tree == STR_TREE:
         return VALUE_STR.get(cell["icon"], mb.OTHER)
     return mb.VALUE.get(cell["icon"], mb.OTHER)
 
 
 def grow(cells, need, tree, limit, lvl, taken):
-    """Добрать до limit рангов в дереве, самое ценное — раньше.
-
-    lvl и taken общие на весь план: ряд открывается по числу рангов
-    именно в этом дереве, а требования смотрят на ранги любой ячейки.
-    """
     bymod = {v["mod"]: k for k, v in cells.items()}
     mine = {k: v for k, v in cells.items() if k.startswith("%d," % tree)}
     plan = []
@@ -120,7 +114,6 @@ def grow(cells, need, tree, limit, lvl, taken):
 
 
 def make_plan(cells, need):
-    """Сила до STR_GOAL, дальше ловкость до TOTAL."""
     lvl, taken = {}, collections.Counter()
     plan = grow(cells, need, STR_TREE, STR_GOAL, lvl, taken)
     plan += grow(cells, need, AGI_TREE, TOTAL - taken[STR_TREE], lvl, taken)

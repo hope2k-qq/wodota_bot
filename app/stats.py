@@ -57,27 +57,16 @@ def blank(start):
 
 
 def worth_keeping(rec):
-    """Матч попадает в статистику, если он правда был.
-
-    Одних волн мало: в самых старых логах отслеживания волн ещё не было
-    вовсе, но матчи там настоящие — с талантами, предметами и получасом
-    времени. Поэтому годится любой из трёх признаков.
-    """
     return bool(rec["waves"] or rec["over"] or rec["end"] - rec["start"] >= 60)
 
 
 def finish(rec):
-    """Дозаполнить то, чего в логе не было явно."""
     rec["secs"] = rec["secs"] or round(rec["end"] - rec["start"])
     rec["why"] = rec["why"] or "оборван"
     return rec
 
 
 def stamps(lines, mtime):
-    """Время каждой строки. В логе только часы-минуты-секунды, поэтому
-    дата восстанавливается от конца: последняя строка — это момент, когда
-    файл записали в последний раз, а переход через полночь виден по
-    времени, которое вдруг пошло назад."""
     raw = []
     for ln in lines:
         m = TIME.match(ln)
@@ -106,7 +95,6 @@ def stamps(lines, mtime):
 
 
 def parse_log(path):
-    """Список матчей из одного файла лога."""
     try:
         with open(path, encoding="utf-8", errors="replace") as f:
             lines = f.read().split("\n")
@@ -216,7 +204,6 @@ def parse_log(path):
 
 
 def log_files():
-    """Все логи рядом со скриптом, свежие первыми."""
     files = glob.glob(os.path.join(core.LOGS_DIR, "bot.log*"))
     return sorted(files, key=os.path.getmtime, reverse=True)
 
@@ -225,12 +212,6 @@ HIDDEN_FILE = os.path.join(core.LOGS_DIR, "stats_hidden.json")
 
 
 def hidden():
-    """Ключи записей, убранных из статистики.
-
-    Строки лога при этом не трогаем: лог — исходные данные, и вырезать
-    из него куски ради вида таблицы значит терять то, по чему потом
-    разбираются сбои. Поэтому просто список скрытых, и его можно отменить.
-    """
     try:
         with open(HIDDEN_FILE, encoding="utf-8") as f:
             return set(json.load(f))
@@ -244,7 +225,6 @@ def set_hidden(keys):
 
 
 def hide(key, on=True):
-    """Скрыть запись или вернуть её. True, если список изменился."""
     keys = hidden()
     before = len(keys)
     keys.add(key) if on else keys.discard(key)
@@ -255,7 +235,6 @@ def hide(key, on=True):
 
 
 def all_runs(with_hidden=False):
-    """Матчи из всех логов, новые первыми."""
     out = []
     for p in log_files():
         out += parse_log(p)

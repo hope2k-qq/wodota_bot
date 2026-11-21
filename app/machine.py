@@ -27,8 +27,6 @@ WM_CLOSE = 0x0010
 
 
 def steam_dir():
-    """Куда установлен Steam. Берём из реестра, а не из догадок про
-    Program Files: библиотека может стоять где угодно."""
     try:
         import winreg
     except ImportError:
@@ -66,13 +64,6 @@ def when(stamp):
 
 
 def dota_state():
-    """Что Steam думает про саму Dota.
-
-    StateFlags — битовая маска состояния приложения: 4 значит «полностью
-    установлено», бит 2 — «нужно обновление», 1024 — «обновление идёт».
-    Пока игра запущена, Steam её не патчит, поэтому обновление и ждёт
-    закрытия.
-    """
     root = steam_dir()
     if not root:
         return {"ok": False, "why": "Steam не найден в реестре"}
@@ -96,13 +87,6 @@ def dota_state():
 
 
 def addon_state(workshop_id):
-    """Что Steam думает про кастомку.
-
-    В appworkshop_570.acf у каждой подписки рядом лежат `manifest` —
-    что скачано, и `latest_manifest` — что есть на сервере. Разошлись
-    значит вышло обновление; само оно подтянется, когда Dota в
-    следующий раз запросит эту кастомку.
-    """
     root = steam_dir()
     if not root:
         return {"ok": False, "why": "Steam не найден"}
@@ -133,13 +117,6 @@ def dota_running():
 
 
 def close_dota(timeout=12):
-    """Закрыть Dota по-хорошему, добить только если не послушалась.
-
-    Сначала WM_CLOSE: игра успевает сохраниться и отпустить файлы, а
-    Steam не станет патчить то, что ещё держит процесс. На живом
-    прогоне она закрывается так за секунду, так что ждать долго незачем
-    — добиваем только если и правда зависла.
-    """
     h = core.find_dota()
     if not h:
         return True
@@ -161,12 +138,6 @@ def close_dota(timeout=12):
 
 
 def start_dota(wait=180):
-    """Запустить Dota через Steam.
-
-    Именно через steam://, а не напрямую dota2.exe: запуск через Steam
-    заставляет его сперва докачать отложенное обновление и применить
-    параметры запуска. Прямой запуск exe обновление пропустит.
-    """
     try:
         os.startfile("steam://rungameid/%s" % DOTA_APPID)
     except Exception as e:
@@ -181,7 +152,6 @@ def start_dota(wait=180):
 
 
 def restart_dota():
-    """Закрыть и открыть Dota. Возвращает строку о том, чем кончилось."""
     st = dota_state()
     pending = st.get("need_update") or st.get("updating")
     log("перезапуск Dota%s" % (" (Steam ждёт обновления)" if pending else ""))
@@ -194,8 +164,6 @@ def restart_dota():
 
 
 def shutdown(delay=10):
-    """Выключить компьютер. delay — чтобы успеть передумать командой
-    `shutdown /a` с самой машины."""
     log("ВЫКЛЮЧЕНИЕ КОМПЬЮТЕРА через %d с" % delay)
     r = subprocess.run(["shutdown", "/s", "/t", str(delay),
                         "/c", "WoDOTA: выключение с пульта"],

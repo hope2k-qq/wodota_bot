@@ -52,11 +52,6 @@ def cstr(f):
 
 
 def walk(path):
-    """Оглавление пака: путь -> (архив, смещение, длина, начало файла).
-
-    Мелкие файлы лежат прямо в _dir, крупные — в соседних пронумерованных
-    архивах.
-    """
     with open(path, "rb") as f:
         sig, ver = struct.unpack("<II", f.read(8))
         if sig != 0x55AA1234:
@@ -95,7 +90,6 @@ def grab(path, entry):
 
 
 def as_text(data):
-    """Локализация лежит в utf-16, остальное в utf-8."""
     if data[1:2] == b"\0" or data[:2] in (b"\xff\xfe", b"\xfe\xff"):
         return data.decode("utf-16-le", "replace").lstrip("﻿")
     return data.decode("utf-8", "replace")

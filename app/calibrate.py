@@ -70,7 +70,6 @@ ATTR_ORDER = [("strength", "СИЛА"), ("agility", "ЛОВКОСТЬ"),
 
 
 def hero_attrs():
-    """Основная характеристика каждого героя."""
     data = core.read_json(os.path.join(core.GAMEFILES_DIR,
                                        "heroes_attack.json"), {})
     out = {}
@@ -80,12 +79,6 @@ def hero_attrs():
 
 
 def walk_picks(screen, only_missing=True):
-    """Обойти все билды и снять точку пика каждому.
-
-    Отдельный режим, потому что точек под сотню: открываешь экран
-    выбора героя один раз и идёшь по списку, наводя и нажимая F8.
-    Снятое пересчитывается в остальные профили само.
-    """
     attrs = hero_attrs()
     rank = {a: i for i, (a, _) in enumerate(ATTR_ORDER)}
     names = core.hero_files()
@@ -243,7 +236,6 @@ def main():
 
 
 def measured(prof, key):
-    """Отметить точку как снятую руками, чтобы её больше не пересчитывали."""
     der = prof.setdefault("derived", [])
     if key in der:
         der.remove(key)
@@ -253,12 +245,6 @@ def measured(prof, key):
 
 
 def spread(from_screen, key, xy):
-    """Перенести точку в остальные профили по формуле.
-
-    Интерфейс Dota тянется с разрешением линейно, поэтому достаточно
-    множителя по ширине. Трогаем только то, чего там нет или что само
-    когда-то было посчитано: снятое руками точнее любой формулы.
-    """
     src = core.read_json(core.screen_path(from_screen))
     w0 = (src.get("resolution") or [0])[0]
     done = []
@@ -286,7 +272,6 @@ def spread(from_screen, key, xy):
 
 
 def spread_pick(hero, from_screen, xy):
-    """То же для точки пика: она лежит в билде, по профилям."""
     path = core.hero_path(hero)
     h = core.read_json(path)
     at = h.get("pick_at")
@@ -326,8 +311,6 @@ def cur_hero():
 
 
 def save_pick(xy, name, screen):
-    """Точка пика — в билд названного героя, под нужный размер экрана,
-    с пересчётом в остальные профили."""
     if not core.read_json(core.hero_path(name or "")):
         return "никуда — билд %s не прочитан" % name, []
     also = spread_pick(name, screen, xy)
