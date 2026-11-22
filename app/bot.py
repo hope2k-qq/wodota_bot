@@ -2092,7 +2092,7 @@ def build_pregame():
         ("difficulty_pick", "difficulty_confirm",
          "беру сложность %s" % difficulty_name(), 1.0, 3,
          dict(point="difficulty_confirm", color="gold", min_frac=0.10,
-              w=240, h=56)),
+              w=240, h=56, wait_s=180)),
         ("hero_pick", "hero_pick_confirm",
          "беру %s" % cfg.get("title", "героя"), 1.2, 2, None),
     ]
@@ -2213,43 +2213,85 @@ PREGAME_WAIT = 120
 IN_GAME = ("STRATEGY_TIME", "TEAM_SHOWCASE", "WAIT_FOR_MAP_TO_LOAD",
            "PRE_GAME", "GAME_IN_PROGRESS", "POST_GAME")
 STEP_PAST = {
-    "server_pick": ("CUSTOM_GAME_SETUP", "HERO_SELECTION") + IN_GAME,
+    "server_pick": ("HERO_SELECTION",) + IN_GAME,
     "difficulty_pick": ("HERO_SELECTION",) + IN_GAME,
     "hero_pick": IN_GAME,
 }
-STEP_AT = {"hero_pick": "HERO_SELECTION",
-           "difficulty_pick": "CUSTOM_GAME_SETUP"}
+STEP_AT = {"hero_pick": "HERO_SELECTION"}
 
 
-def one_wait(pick, ready, slice_s):
-    if ready:
-        if not CO.get(ready["point"]):
-            return True
-        return core.wait_color(*CO[ready["point"]], color=ready["color"],
-                               min_frac=ready["min_frac"], w=ready["w"],
-                               h=ready["h"], timeout=slice_s)
+STALE = {"panel": dict(point="leave_game", color="dark_red",
+                       min_frac=0.40, w=200, h=20),
+         "confirm": dict(point="leave_back", color="green",
+                         min_frac=0.40, w=120, h=28)}
+STALE_WAIT = 12
+STALE_TRIES = 3
+
+
+def stale_panel():
+    return marker_up(STALE["panel"])
+
+
+def leave_stale_game():
+    if not CO.get("leave_confirm"):
+        log("в лобби висит старая игра, а точка «покинуть игру» не снята — "
+            "сними её на пульте, иначе игра вернёт в неё сама")
+        return False
+    log("в лобби висит старая игра — выхожу из неё, пока не вернуло обратно")
+    with core.INPUT_LOCK:
+        core.click(*CO["leave_game"])
+    r = STALE["confirm"]
+    if not core.wait_color(*CO[r["point"]], color=r["color"],
+                           min_frac=r["min_frac"], w=r["w"], h=r["h"],
+                           timeout=STALE_WAIT):
+        log("окно «покинуть игру?» не появилось")
+        return False
+    nap(float(cfg["launch"].get("screen_settle_s", 3)))
+    with core.INPUT_LOCK:
+        core.click(*CO["leave_confirm"])
+    log("подтвердил выход из старой игры, жду экран выбора режима")
+    return True
+
+
+def marker_up(ready):
+    if not ready or not CO.get(ready["point"]):
+        return False
+    box = core._patch(*CO[ready["point"]], ready["w"], ready["h"])
+    return core.color_frac(box, ready["color"]) >= ready["min_frac"]
+
+
+def one_wait(pick, slice_s):
     return core.wait_rendered(*CO[pick], timeout=slice_s,
                               stable_s=1.5, min_wait=3.0)
 
 
 def wait_screen(gsi, pick, ready):
-    deadline = time.time() + SCREEN_TIMEOUT
+    deadline = time.time() + float((ready or {}).get("wait_s")
+                                   or SCREEN_TIMEOUT)
     while True:
         guard()
         state = gsi.state
         if state and state in STEP_PAST.get(pick, ()):
             return "past"
         if state and state == STEP_AT.get(pick):
-            if ready and CO.get(ready["point"]):
-                one_wait(pick, ready,
-                         min(float(cfg["launch"].get("marker_wait_s", 15)),
-                             max(0.0, deadline - time.time())))
             return "ok"
         left = deadline - time.time()
         if left <= 0:
             return ""
-        if one_wait(pick, ready, min(5.0, left)):
+        if ready:
+            if not CO.get(ready["point"]):
+                return "ok"
+            if marker_up(ready):
+                return "ok"
+            if pick == "server_pick" and CO.get("leave_game")                     and stale_panel():
+                return "stale"
+            time.sleep(0.25)
+            continue
+        at = time.time()
+        if one_wait(pick, min(5.0, left)):
             return "ok"
+        if time.time() - at < 0.2:
+            time.sleep(0.2)
 
 
 def run_pregame(gsi):
@@ -2266,6 +2308,11 @@ def run_pregame(gsi):
         for attempt in range(1, tries + 1):
             guard()
             got = wait_screen(gsi, pick, ready)
+            left = STALE_TRIES
+            while got == "stale" and left > 0:
+                left -= 1
+                leave_stale_game()
+                got = wait_screen(gsi, pick, ready)
             if got == "past":
                 log("%s: этот экран уже позади (состояние %s)"
                     % (label, gsi.state))

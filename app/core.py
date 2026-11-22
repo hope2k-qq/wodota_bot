@@ -387,6 +387,7 @@ COLORS = {
     "gold": lambda r, g, b: r > 170 and g > 130 and b < 110 and r - b > 90 and r - g > 25,
     "yellow": lambda r, g, b: r > 150 and g > 110 and b < 110 and r - b > 70,
     "white": lambda r, g, b: r > 215 and g > 215 and b > 215,
+    "dark_red": lambda r, g, b: 45 < r < 180 and r - g > 12 and r - b > 12,
     "icon_red": lambda r, g, b: r > 120 and r - g > 60 and r - b > 60,
     "icon_green": lambda r, g, b: g > 120 and g - r > 60 and g - b > 60,
     "icon_cyan": lambda r, g, b: b > 120 and g > 100 and b - r > 60,
