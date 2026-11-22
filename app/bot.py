@@ -2092,9 +2092,11 @@ def build_pregame():
         ("difficulty_pick", "difficulty_confirm",
          "беру сложность %s" % difficulty_name(), 1.0, 3,
          dict(point="difficulty_confirm", color="gold", min_frac=0.10,
-              w=240, h=56, wait_s=180)),
+              w=240, h=56, wait_s=180, verify=True)),
         ("hero_pick", "hero_pick_confirm",
-         "беру %s" % cfg.get("title", "героя"), 1.2, 2, None),
+         "беру %s" % cfg.get("title", "героя"), 1.2, 2,
+         dict(point="hero_screen", color="gold", min_frac=0.08,
+              w=72, h=72)),
     ]
 
 
@@ -2208,16 +2210,22 @@ def reload_if_changed():
 
 SCREEN_TIMEOUT = 120
 PREGAME_WAIT = 120
+VERIFY_WAIT = 8
 
 
 IN_GAME = ("STRATEGY_TIME", "TEAM_SHOWCASE", "WAIT_FOR_MAP_TO_LOAD",
            "PRE_GAME", "GAME_IN_PROGRESS", "POST_GAME")
 STEP_PAST = {
     "server_pick": ("HERO_SELECTION",) + IN_GAME,
-    "difficulty_pick": ("HERO_SELECTION",) + IN_GAME,
+    "difficulty_pick": IN_GAME,
     "hero_pick": IN_GAME,
 }
-STEP_AT = {"hero_pick": "HERO_SELECTION"}
+DIFF_MARK = dict(point="difficulty_confirm", color="gold", min_frac=0.10,
+                 w=240, h=56)
+
+
+def diff_window():
+    return bool(CO.get("difficulty_confirm")) and marker_up(DIFF_MARK)
 
 
 STALE = {"panel": dict(point="leave_game", color="dark_red",
@@ -2273,14 +2281,13 @@ def wait_screen(gsi, pick, ready):
         state = gsi.state
         if state and state in STEP_PAST.get(pick, ()):
             return "past"
-        if state and state == STEP_AT.get(pick):
-            return "ok"
         left = deadline - time.time()
         if left <= 0:
             return ""
-        if ready:
-            if not CO.get(ready["point"]):
-                return "ok"
+        if pick == "hero_pick" and diff_window():
+            time.sleep(0.5)
+            continue
+        if ready and CO.get(ready["point"]):
             if marker_up(ready):
                 return "ok"
             if pick == "server_pick" and CO.get("leave_game")                     and stale_panel():
@@ -2326,11 +2333,20 @@ def run_pregame(gsi):
             log("%s   (сейчас состояние %s)" % (label, before or "?"))
             with core.INPUT_LOCK:
                 core.click(*CO[pick])
-                time.sleep(0.6)
+                time.sleep(float(cfg["launch"].get("confirm_wait_s", 1.2)))
                 if CO.get(confirm):
                     core.click(*CO[confirm])
             if pick == "hero_pick" and party_role() == "main":
                 PARTY.say("hero")
+
+            if ready and ready.get("verify") and CO.get(ready["point"]):
+                if wait_for(lambda: not marker_up(ready), VERIFY_WAIT,
+                            "уход экрана «%s»" % label):
+                    log("   -> приняли: экран ушёл")
+                    break
+                log("   не приняли, экран на месте, повтор %d из %d"
+                    % (attempt, tries))
+                continue
 
             if wait_for(lambda: gsi.state != before, 25, "переход после «%s»" % label):
                 log("   -> состояние стало %s" % gsi.state)

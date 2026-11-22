@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 GSI-пробник для Dota 2.
 
