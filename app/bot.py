@@ -363,15 +363,105 @@ def cast_by_bar(gsi, st):
     do_cast(gsi, st, by="полосе")
 
 
+def hero_count(gsi):
+    d, _ = gsi.snapshot()
+    names = set()
+    for v in (d.get("minimap") or {}).values():
+        n = str(v.get("unitname") or "")
+        if v.get("team") != 4 and n.startswith("npc_dota_hero_"):
+            names.add(n)
+    return len(names)
+
+
+SIZE_HEROES = {"solo": 1, "duo": 2, "trio": 3, "squad": 4}
+
+
+def want_heroes():
+    if not (party_on() and TOGETHER):
+        return 1
+    size = str(party.conf_of(cfg).get("size") or "duo").lower()
+    return max(2, SIZE_HEROES.get(size, 2))
+
+
+def check_company(gsi, st):
+    if not WATCH.get("alone_only", True):
+        return ""
+    if party_on() and PARTY.saw("bad"):
+        return "напарник увидел чужую игру"
+    if st.get("crowd_done") or st.get("wave", 0) < 1:
+        return ""
+    st["crowd_n"] = st.get("crowd_n", 0) + 1
+    want = want_heroes()
+    seen = hero_count(gsi)
+    if seen > want:
+        st["crowd"] = st.get("crowd", 0) + 1
+        if st["crowd"] >= WATCH.get("crowd_ticks", 2):
+            return "в игре %d героев вместо %d — это чужая игра" % (seen, want)
+    else:
+        st["crowd"] = 0
+    if st["crowd_n"] >= WATCH.get("crowd_checks", 5):
+        st["crowd_done"] = True
+        log("компания своя: героев на карте %d, больше не проверяю" % seen)
+    return ""
+
+
+def stuck_wave(st):
+    limit = WAVE.get("max_wave_s", 300)
+    if not limit or not st.get("wave"):
+        return ""
+    held = time.time() - st.get("wave_at_real", time.time())
+    if held < limit:
+        return ""
+    return "волна %d не кончается уже %d мин" % (st["wave"], round(held / 60))
+
+
+def wrong_hero_why(st):
+    if not st.get("wrong_hero") or not WATCH.get("wrong_hero_leave", True):
+        return ""
+    return ("в игре не наш герой (%s) — так бывает, когда попал в чужую "
+            "игру" % st["wrong_hero"])
+
+
+def leave_why(st):
+    for key in ("crowd_why", "hero_why", "party_lost", "stuck_why"):
+        if st.get(key):
+            return st[key]
+    return ""
+
+
+def hold_off():
+    left = globals().get("WAIT_UNTIL", 0) - time.time()
+    if left <= 0:
+        return
+    log("чужая игра была недавно — жду ещё %d мин, прежде чем заходить"
+        % max(1, round(left / 60)))
+    nap(left)
+
+
 def wave_watcher(gsi, st, stop):
     while not stop.wait(WAVE.get("poll_s", 1.0)):
         try:
             track_waves(gsi, st)
+            why = check_company(gsi, st)
+            if why:
+                st["crowd_why"] = why
+                if party_on():
+                    PARTY.say("bad")
+                return
+            why = wrong_hero_why(st)
+            if why:
+                st["hero_why"] = why
+                return
             why = party_lost(st)
             if why:
                 st["party_lost"] = why
                 return
-            wave_f1(st, "волне")
+            why = stuck_wave(st)
+            if why:
+                st["stuck_why"] = why
+                return
+            if st.pop("wave_new", False):
+                wave_f1(st, "волне")
             track_bkb(gsi, st)
             track_death(gsi, st)
             track_satanic(gsi, st)
@@ -380,6 +470,7 @@ def wave_watcher(gsi, st, stop):
             maybe_boss_swap(gsi, st)
             maybe_wave_move(gsi, st)
             maybe_ult(gsi, st)
+            maybe_spam(gsi, st)
             maybe_boss_cast(gsi, st)
         except Exception as e:
             log("наблюдатель: %s: %s" % (type(e).__name__, e))
@@ -842,6 +933,55 @@ BUTTON_NAME = {"left": "ЛКМ", "right": "ПКМ"}
 BOSS_NAME = {"boss_attack": "связка"}
 
 
+def maybe_spam(gsi, st, what="spam"):
+    r = REACT.get(what) or {}
+    if not r or not on(what):
+        return
+    if st.get("wave_closed", True) or not st.get("wave_at_real"):
+        return
+    if st.get("wave_is_boss") and not r.get("on_boss", True):
+        return
+    if time.time() - st["wave_at_real"] < float(r.get("after_wave_s", 3)):
+        return
+    if st.get("spam_wave") != st.get("wave"):
+        st.update(spam_wave=st.get("wave"), spam_n=0, spam_at=0)
+    times = int(r.get("times", 0) or 0)
+    if times and st.get("spam_n", 0) >= times:
+        return
+    gap = float(r.get("cooldown_s", 10) or 0)
+    if st.get("spam_at") and time.time() - st["spam_at"] < gap:
+        return
+    if not gsi.get("hero.alive", True):
+        return
+    which = r.get("ability") or "slot1"
+    i = ability_slots(gsi).get(which)
+    if i is None or ability_level(gsi, i) < 1:
+        return
+    key = r.get("key") or cast_key(which)
+    if not acquire_if(lambda: not st.get("wave_closed"),
+                      "%s по кулдауну" % cast_name(which),
+                      float(r.get("lock_wait_s", 1.0))):
+        return
+    try:
+        st["spam_at"] = time.time()
+        st["spam_n"] = st.get("spam_n", 0) + 1
+        st["spam_total"] = st.get("spam_total", 0) + 1
+        core.chord(*key)
+        at = point(r.get("click"))
+        if at:
+            time.sleep(float(r.get("key_wait_s", 0.1)))
+            btn = (r.get("button") or "left").lower()
+            core.click(at[0], at[1], button=btn)
+        log("волна %s: %s по кулдауну, нажатие %d — %s%s"
+            % (st.get("wave", "?"), cast_name(which), st["spam_n"],
+               "+".join(key),
+               (" и %s в %d,%d"
+                % (BUTTON_NAME.get((r.get("button") or "left").lower(),
+                                   "клик"), at[0], at[1])) if at else ""))
+    finally:
+        core.INPUT_LOCK.release()
+
+
 def maybe_boss_cast(gsi, st, what="boss_attack"):
     r = REACT.get(what) or {}
     if not r or not on(what):
@@ -1137,6 +1277,7 @@ def track_waves(gsi, st):
                   wave_at_real=time.time(), wave_kind=kind, wave_bkb=False,
                   wave_ult=False, wave_is_boss=boss)
         st["wave"] = st.get("wave", 0) + 1
+        st["wave_new"] = True
         st["wave_hist"] = (st.get("wave_hist") or [])[-5:] + [kind]
         log("ВОЛНА %d: %s%s +%d, время %d:%02d, герой ур.%d hp %s%%"
             % (st["wave"], creep_name(kind), "  <-- БОСС" if boss else "",
@@ -1729,6 +1870,7 @@ def at_server_screen():
 PARTY = None
 PRESS_SERVER = True
 TOGETHER = False
+WAIT_UNTIL = 0
 
 
 def party_on():
@@ -2068,15 +2210,46 @@ SCREEN_TIMEOUT = 120
 PREGAME_WAIT = 120
 
 
-def wait_screen(pick, ready, label):
+IN_GAME = ("STRATEGY_TIME", "TEAM_SHOWCASE", "WAIT_FOR_MAP_TO_LOAD",
+           "PRE_GAME", "GAME_IN_PROGRESS", "POST_GAME")
+STEP_PAST = {
+    "server_pick": ("CUSTOM_GAME_SETUP", "HERO_SELECTION") + IN_GAME,
+    "difficulty_pick": ("HERO_SELECTION",) + IN_GAME,
+    "hero_pick": IN_GAME,
+}
+STEP_AT = {"hero_pick": "HERO_SELECTION",
+           "difficulty_pick": "CUSTOM_GAME_SETUP"}
+
+
+def one_wait(pick, ready, slice_s):
     if ready:
         if not CO.get(ready["point"]):
             return True
         return core.wait_color(*CO[ready["point"]], color=ready["color"],
                                min_frac=ready["min_frac"], w=ready["w"],
-                               h=ready["h"], timeout=SCREEN_TIMEOUT)
-    return core.wait_rendered(*CO[pick], timeout=SCREEN_TIMEOUT,
+                               h=ready["h"], timeout=slice_s)
+    return core.wait_rendered(*CO[pick], timeout=slice_s,
                               stable_s=1.5, min_wait=3.0)
+
+
+def wait_screen(gsi, pick, ready):
+    deadline = time.time() + SCREEN_TIMEOUT
+    while True:
+        guard()
+        state = gsi.state
+        if state and state in STEP_PAST.get(pick, ()):
+            return "past"
+        if state and state == STEP_AT.get(pick):
+            if ready and CO.get(ready["point"]):
+                one_wait(pick, ready,
+                         min(float(cfg["launch"].get("marker_wait_s", 15)),
+                             max(0.0, deadline - time.time())))
+            return "ok"
+        left = deadline - time.time()
+        if left <= 0:
+            return ""
+        if one_wait(pick, ready, min(5.0, left)):
+            return "ok"
 
 
 def run_pregame(gsi):
@@ -2092,10 +2265,15 @@ def run_pregame(gsi):
         before = gsi.state
         for attempt in range(1, tries + 1):
             guard()
-            if not wait_screen(pick, ready, label):
+            got = wait_screen(gsi, pick, ready)
+            if got == "past":
+                log("%s: этот экран уже позади (состояние %s)"
+                    % (label, gsi.state))
+                break
+            if not got:
                 log("%s: экран так и не появился" % label)
                 break
-            time.sleep(settle)
+            nap(settle + float(cfg["launch"].get("screen_settle_s", 1.5)))
             if pick == "server_pick":
                 set_lobby_mode()
             log("%s   (сейчас состояние %s)" % (label, before or "?"))
@@ -2128,6 +2306,7 @@ def run_pregame(gsi):
 
 
 def play_one_game(gsi):
+    hold_off()
     party_ready()
     if not launch_game(gsi):
         return False
@@ -2164,6 +2343,8 @@ def match_summary(st):
            st.get("level", 0),
            ("НЕ ТОТ ГЕРОЙ (%s)" % st["wrong_hero"]) if st.get("wrong_hero")
            else st.get("why", "?")))
+    if st.get("spam_total"):
+        log("способность по кулдауну: %d нажатий за матч" % st["spam_total"])
     if st.get("ult_uses") or st.get("ult_skipped"):
         log("ульта за матч: нажата %d раз, пропущено %d, "
             "рефрешеров %d"
@@ -2194,13 +2375,19 @@ def run_match(gsi, done=0, bought=0):
     finally:
         stop.set()
         match_summary(st)
-        if st.get("party_lost"):
-            leave_match(st["party_lost"])
+        why = leave_why(st)
+        if why:
+            leave_match(why)
+        if st.get("crowd_why"):
+            wait = WATCH.get("strangers_wait_s", 900)
+            globals()["WAIT_UNTIL"] = time.time() + wait
+            log("следующий заход только через %d мин" % round(wait / 60))
 
 
 def match_over(gsi, st):
-    if st.get("party_lost"):
-        return "напарник выпал: %s" % st["party_lost"]
+    why = leave_why(st)
+    if why:
+        return why
     if gsi.in_menu:
         return "вернулись в лобби"
     if not gsi.fresh:
