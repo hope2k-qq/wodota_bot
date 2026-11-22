@@ -212,7 +212,69 @@ def checklist(conf=None, fix=True):
     return [(key, ok, note) for key, ok, note in out if note]
 
 
+def gsi_port_in(path):
+    text = read(path)
+    m = re.search(r'"uri"\s*"http://(?:localhost|127\.0\.0\.1):(\d+)', text)
+    return int(m.group(1)) if m else 0
+
+
+def port_busy(port):
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.bind(("127.0.0.1", port))
+        return False
+    except OSError:
+        return True
+    finally:
+        s.close()
+
+
+def gsi_report():
+    conf = core.load_config()
+    want = int(conf.get("gsi_port") or 3100)
+    print("Steam:", machine.steam_dir() or "не найден")
+    for lib in machine.library_dirs():
+        print("  библиотека:", lib)
+    acf, game = machine.dota_home()
+    print("Dota:", game or "не найдена",
+          "" if os.path.isdir(game) else "— папки нет!")
+    dst = gsi_path()
+    print("конфиг GSI:", dst or "некуда класть")
+    if dst and os.path.exists(dst):
+        port = gsi_port_in(dst)
+        print("   файл на месте, порт в нём:", port or "не разобрал")
+        if port and port != want:
+            print("   ПОРТ НЕ ТОТ: бот слушает %d. Удали файл — бот положит "
+                  "свой." % want)
+    else:
+        print("   файла нет — положи его запуском бота или руками")
+    other = []
+    folder = os.path.dirname(dst) if dst else ""
+    if folder and os.path.isdir(folder):
+        other = [f for f in os.listdir(folder) if f.lower().endswith(".cfg")]
+    print("   в папке ещё:", ", ".join(other) or "ничего")
+    print("порт %d:" % want,
+          "занят (бот уже запущен?)" if port_busy(want) else "свободен")
+    print("Dota запущена:", "да" if machine.dota_running() else "нет")
+    opts = launch_options()
+    print("параметры запуска:", opts if opts is not None else "не прочитал")
+    mode = window_mode()
+    if mode:
+        print("режим окна: %s%s"
+              % ("полный экран" if mode["fullscreen"] else "окно",
+                 ", без рамки" if mode["borderless"] else ""))
+    print()
+    print("Если файл на месте, порт тот, параметры стоят, а данных нет —")
+    print("перезапусти Dota: она читает эту папку только при старте.")
+    print("Если Dota ставилась в другую библиотеку, проверь, что файл лежит")
+    print("именно в той папке, которая напечатана выше.")
+    return 0
+
+
 def main():
+    if "--gsi" in sys.argv:
+        return gsi_report()
     core.log("проверка настроек")
     items = checklist()
     if not items:

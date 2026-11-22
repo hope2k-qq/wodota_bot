@@ -358,6 +358,7 @@ py app\party.py second
 | `py app\bot.py --probe` | что бот видит в точках до-матчевых экранов |
 | `py app\bot.py --states` | переходы `game_state` по ходу матча |
 | `py app\bot.py --console` | только заход в игру через консоль |
+| `py app\checks.py --gsi` | разбор GSI: библиотеки Steam, папка Dota, путь и порт конфига, занятость порта |
 | `py app\machine.py` | состояние Dota и кастомки: сборка, обновления |
 | `py app\party.py main` / `second` | связь с напарником без игры |
 | `py app\point.py 8` | где курсор через восемь секунд |

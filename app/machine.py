@@ -63,11 +63,42 @@ def when(stamp):
     return time.strftime("%d.%m.%Y %H:%M", time.localtime(n)) if n else ""
 
 
+def library_dirs():
+    root = steam_dir()
+    if not root:
+        return []
+    out = [root]
+    seen = {os.path.normcase(os.path.normpath(root))}
+    txt = read_text(os.path.join(root, "steamapps", "libraryfolders.vdf"))
+    for m in re.finditer(r'"path"\s*"([^"]+)"', txt):
+        path = os.path.normpath(m.group(1).replace("\\\\", "\\"))
+        key = os.path.normcase(path)
+        if os.path.isdir(path) and key not in seen:
+            seen.add(key)
+            out.append(path)
+    return out
+
+
+def dota_home():
+    for lib in library_dirs():
+        acf = os.path.join(lib, "steamapps",
+                           "appmanifest_%s.acf" % DOTA_APPID)
+        game = os.path.join(lib, "steamapps", "common", "dota 2 beta")
+        if os.path.exists(acf) or os.path.isdir(game):
+            return acf, game
+    root = steam_dir()
+    if not root:
+        return "", ""
+    return (os.path.join(root, "steamapps",
+                         "appmanifest_%s.acf" % DOTA_APPID),
+            os.path.join(root, "steamapps", "common", "dota 2 beta"))
+
+
 def dota_state():
     root = steam_dir()
     if not root:
         return {"ok": False, "why": "Steam не найден в реестре"}
-    acf = os.path.join(root, "steamapps", "appmanifest_%s.acf" % DOTA_APPID)
+    acf, game = dota_home()
     txt = read_text(acf)
     if not txt:
         return {"ok": False, "why": "нет appmanifest_%s.acf" % DOTA_APPID}
@@ -82,7 +113,7 @@ def dota_state():
         "flags": flags,
         "need_update": bool(flags & 2),
         "updating": bool(flags & 1024),
-        "dir": os.path.join(root, "steamapps", "common", "dota 2 beta"),
+        "dir": game,
     }
 
 
