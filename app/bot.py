@@ -21,7 +21,6 @@ import threading
 import time
 import traceback
 
-import checks
 import core
 import machine
 import party
@@ -2843,28 +2842,61 @@ def run_mode(arg):
         mode_run()
 
 
+def gsi_cfg_dir():
+    d = machine.dota_state()
+    if not d.get("ok") or not d.get("dir"):
+        return ""
+    return os.path.join(d["dir"], "game", "dota", "cfg",
+                        "gamestate_integration")
+
+
+def ensure_gsi_cfg():
+    name = "gamestate_integration_wodota.cfg"
+    src = core.file(name)
+    if not os.path.exists(src):
+        log("НЕТ ФАЙЛА data/%s — без него Dota не шлёт данные и бот слеп: "
+            "не видит ни волн, ни золота, ни инвентаря." % name)
+        return False
+    folder = gsi_cfg_dir()
+    if not folder:
+        log("НЕ НАШЁЛ папку Dota — положи data/%s в "
+            "steamapps/common/dota 2 beta/game/dota/cfg/"
+            "gamestate_integration/ и перезапусти игру." % name)
+        return False
+    dst = os.path.join(folder, name)
+    try:
+        there = os.path.exists(dst)
+        if there and open(dst, "rb").read() == open(src, "rb").read():
+            return True
+        os.makedirs(folder, exist_ok=True)
+        shutil.copyfile(src, dst)
+        log("КОНФИГ GSI %s — положил на место (%s). Dota читает его только "
+            "при запуске, поэтому данных не будет, пока игра не "
+            "перезапустится: закрой и открой Dota."
+            % ("отличался" if there else "пропал", dst))
+        return False
+    except Exception as e:
+        log("КОНФИГ GSI не восстановлен: %s: %s. Положи %s в %s руками."
+            % (type(e).__name__, e, name, folder))
+        return False
+
+
 def startup_notes():
     scr = core.pick_screen(cfg.get("screen"))
     log("экран %dx%d, профиль screens/%s.json, герой %s, сложность %s"
         % (core.SCREEN_W, core.SCREEN_H, scr, cfg.get("hero"),
            cfg.get("difficulty")))
-    items = checks.checklist(cfg)
-    globals()["GSI_READY"] = next((ok for key, ok, _ in items
-                                   if key == "gsi"), True)
-    for key, ok, note in items:
-        if ok:
-            log("сделал за тебя: %s" % note)
-    need = [note for key, ok, note in items if not ok]
-    if need:
-        log("ПЕРЕД СТАРТОМ НАДО ПОПРАВИТЬ:")
-        for note in need:
-            log("   - %s" % note)
-    else:
-        log("проверка настроек: всё на месте")
+    globals()["GSI_READY"] = ensure_gsi_cfg()
+    at = cfg.get("pick_at")
+    if isinstance(at, dict):
+        at = at.get(cfg.get("screen_file"))
+    if not at or not any(at):
+        log("ВНИМАНИЕ: у билда %s не снята точка пика для %s — сними её на "
+            "пульте" % (cfg.get("hero_file") or "?", cfg.get("screen_file")))
     stash = [e["search"] for e in ITEMS.get("order") or [] if e.get("stash")]
     if stash and not CO.get("stash_button"):
-        log("   - %s надо убирать в тайник, а кнопка «в тайник» не снята — "
-            "сними её на пульте" % ", ".join(stash))
+        log("ВНИМАНИЕ: %s надо убирать в тайник, а кнопка «в тайник» не "
+            "снята" % ", ".join(stash))
 
 
 def main():

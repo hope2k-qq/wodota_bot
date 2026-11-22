@@ -1667,30 +1667,6 @@ def set_only_fav(on):
     return True
 
 
-def checks_html():
-    try:
-        import checks
-        items = checks.checklist()
-    except Exception as e:
-        return ("<div class='state bad'>Проверки не отработали: %s</div>"
-                % html.escape("%s: %s" % (type(e).__name__, e)))
-    need = [n for _, ok, n in items if not ok]
-    done = [n for _, ok, n in items if ok]
-    out = []
-    if need:
-        out.append("<div class='state bad'><b>Нужно поправить</b><br>"
-                   + "<br>".join("\u2022 " + html.escape(n) for n in need)
-                   + "</div>")
-    else:
-        out.append("<div class='state ok'>Всё, что нужно, на месте — можно "
-                   "запускать.</div>")
-    if done:
-        out.append("<div class='state'><b>Сделал сам</b><br>"
-                   + "<br>".join("\u2022 " + html.escape(n) for n in done)
-                   + "</div>")
-    return "".join(out)
-
-
 def settings_html():
     conf = conf_view()
     diffs = difficulties()
@@ -1746,8 +1722,7 @@ def settings_html():
                      " on" if key == mode else "",
                      html.escape(title), html.escape(note)))
     return (
-        checks_html()
-        + "<div class='state'>Смена режима, билда и сложности применяется "
+        "<div class='state'>Смена режима, билда и сложности применяется "
         "<b>со следующего матча</b>: начатый доигрывается как был.</div>"
         "<h2>Режим</h2>" + "".join(ml)
         + (sweep_html(conf) if mode == "sweep" else "")

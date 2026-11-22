@@ -6,7 +6,6 @@
     WoDOTA.exe --bot           только бот, без пульта
     WoDOTA.exe --bot --check   проверки бота
     WoDOTA.exe --party main    проверка связи с напарником
-    WoDOTA.exe --checks        что ещё нужно настроить
 
 То же самое без сборки: py app/wodota.py --bot.
 
@@ -66,10 +65,6 @@ def main():
         import machine
         machine.main()
         return 0
-
-    if first == "--checks":
-        import checks
-        return checks.main()
 
     import remote
     remote.main()
