@@ -1943,6 +1943,12 @@ def party_invite():
     if miss:
         log("пати: нет координат %s — сними их на пульте" % ", ".join(miss))
         return False
+    if not at_server_screen():
+        log("пати: лобби на экране не вижу — проверяю ещё раз, вслепую не "
+            "зову")
+        if not lobby_ready(float(conf.get("lobby_wait_s") or 60),
+                           "лобби перед приглашением", past_ok=False):
+            return False
     who = str(conf.get("invite_id") or "").strip()
     if not who:
         log("пати: не задан invite_id — звать некого")
@@ -1958,7 +1964,11 @@ def party_invite():
         core.type_text(who)
         time.sleep(pause)
         core.click(*CO["party_invite"])
-    log("пати: позвал напарника (%s)" % who)
+    shot = core.stage_shot("приглашение отправлено",
+                           cfg["launch"].get("shots_dir", ""),
+                           int(cfg["launch"].get("shots_keep", 80) or 0))
+    log("пати: позвал напарника (%s)%s"
+        % (who, "   снимок %s" % shot if shot else ""))
     return True
 
 
@@ -1978,9 +1988,12 @@ def party_accept():
             return False
     else:
         time.sleep(1.5)
+    shot = core.stage_shot("окно приглашения",
+                           cfg["launch"].get("shots_dir", ""),
+                           int(cfg["launch"].get("shots_keep", 80) or 0))
     with core.INPUT_LOCK:
         core.click(*CO["party_accept"])
-    log("пати: принял приглашение")
+    log("пати: принял приглашение%s" % ("   снимок %s" % shot if shot else ""))
     return True
 
 
@@ -2028,7 +2041,7 @@ def party_sync():
         return False
     conf = party.conf_of(cfg)
     ready = lobby_ready(float(conf.get("lobby_wait_s") or 60),
-                        "зелёную кнопку в лобби")
+                        "зелёную кнопку в лобби", past_ok=False)
     if not ready:
         if conf.get("solo_never", True):
             log("пати: лобби так и не прорисовалось — выходим и заходим "
@@ -2476,9 +2489,15 @@ def watch_screen(gsi=None, force=False):
     name = screen_name()
     if name == SEEN.get("name") and now - SEEN.get("said", 0) < 10:
         return name
+    was = SEEN.get("name")
     SEEN["name"], SEEN["said"] = name, now
     state = (gsi.state if gsi is not None else "") or "молчит"
-    log("вижу: %s   (данные игры: %s)" % (name, state))
+    shot = ""
+    if name != was:
+        shot = core.stage_shot(name, cfg["launch"].get("shots_dir", ""),
+                               int(cfg["launch"].get("shots_keep", 80) or 0))
+    log("вижу: %s   (данные игры: %s)%s"
+        % (name, state, "   снимок %s" % shot if shot else ""))
     return name
 
 
@@ -2486,7 +2505,7 @@ def watch_reset():
     SEEN.clear()
 
 
-def lobby_ready(timeout, why="лобби аркады", gsi=None):
+def lobby_ready(timeout, why="лобби аркады", gsi=None, past_ok=True):
     end = time.time() + float(timeout)
     said = False
     left = STALE_TRIES
@@ -2496,8 +2515,8 @@ def lobby_ready(timeout, why="лобби аркады", gsi=None):
         if at_server_screen():
             return True
         if at_difficulty() or at_hero():
-            log("%s: экран уже дальше лобби — работаю с него" % why)
-            return True
+            log("%s: экран уже дальше лобби" % why)
+            return past_ok
         if left > 0 and stale_panel():
             left -= 1
             leave_stale_game()

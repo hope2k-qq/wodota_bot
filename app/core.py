@@ -8,7 +8,9 @@ import ctypes
 import ctypes.wintypes as wt
 import json
 import os
+import re
 import sys
+import tempfile
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -422,6 +424,42 @@ def wait_color(x, y, color="green", min_frac=0.18, timeout=120, stable_s=0.5,
             since = None
         time.sleep(0.2)
     return False
+
+
+def shots_dir(where=""):
+    if where:
+        folder = os.path.expandvars(where)
+    else:
+        folder = os.path.join(tempfile.gettempdir(), "wodota_shots")
+    try:
+        os.makedirs(folder, exist_ok=True)
+        return folder
+    except OSError:
+        return LOGS_DIR
+
+
+def keep_last(folder, limit=80):
+    try:
+        files = sorted(f for f in os.listdir(folder) if f.endswith(".jpg"))
+        for name in files[:-limit] if limit else []:
+            os.remove(os.path.join(folder, name))
+    except OSError:
+        pass
+
+
+def stage_shot(stage, where="", limit=80):
+    folder = shots_dir(where)
+    name = "%s_%s.jpg" % (time.strftime("%H%M%S"),
+                          re.sub(r"[^a-zA-Zа-яА-Я0-9]+", "_", stage)[:40])
+    path = os.path.join(folder, name)
+    try:
+        grab([0, 0, SCREEN_W, SCREEN_H]).convert("RGB").save(
+            path, "JPEG", quality=55)
+    except Exception as e:
+        log("не удалось снять экран: %s" % e)
+        return ""
+    keep_last(folder, limit)
+    return path
 
 
 def save_shot(name, box=None, quality=70):
