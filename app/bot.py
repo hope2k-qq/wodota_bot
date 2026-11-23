@@ -968,18 +968,32 @@ def maybe_spam(gsi, st, what="spam"):
         st["spam_at"] = time.time()
         st["spam_n"] = st.get("spam_n", 0) + 1
         st["spam_total"] = st.get("spam_total", 0) + 1
+        gap = float(r.get("key_wait_s", 0.1))
+        bits = ["+".join(key)]
         core.chord(*key)
         at = point(r.get("click"))
         if at:
-            time.sleep(float(r.get("key_wait_s", 0.1)))
+            time.sleep(gap)
             btn = (r.get("button") or "left").lower()
             core.click(at[0], at[1], button=btn)
-        log("волна %s: %s по кулдауну, нажатие %d — %s%s"
+            bits.append("%s в %d,%d"
+                        % (BUTTON_NAME.get(btn, "клик"), at[0], at[1]))
+        if r.get("after"):
+            akey = r.get("after_key") or []
+            if akey:
+                time.sleep(gap)
+                core.chord(*akey)
+                bits.append("+".join(akey))
+            at2 = point(r.get("after_click"))
+            if at2:
+                time.sleep(gap)
+                btn2 = (r.get("after_button") or "left").lower()
+                core.click(at2[0], at2[1], button=btn2)
+                bits.append("%s в %d,%d"
+                            % (BUTTON_NAME.get(btn2, "клик"), at2[0], at2[1]))
+        log("волна %s: %s по кулдауну, нажатие %d — %s"
             % (st.get("wave", "?"), cast_name(which), st["spam_n"],
-               "+".join(key),
-               (" и %s в %d,%d"
-                % (BUTTON_NAME.get((r.get("button") or "left").lower(),
-                                   "клик"), at[0], at[1])) if at else ""))
+               " и ".join(bits)))
     finally:
         core.INPUT_LOCK.release()
 
@@ -2013,9 +2027,8 @@ def party_sync():
     if not party_on():
         return False
     conf = party.conf_of(cfg)
-    ready = at_server_screen() or wait_for(
-        at_server_screen, float(conf.get("lobby_wait_s") or 60),
-        "зелёную кнопку в лобби")
+    ready = lobby_ready(float(conf.get("lobby_wait_s") or 60),
+                        "зелёную кнопку в лобби")
     if not ready:
         if conf.get("solo_never", True):
             log("пати: лобби так и не прорисовалось — выходим и заходим "
@@ -2260,7 +2273,7 @@ STALE = {"panel": dict(point="leave_game", color="dark_red",
                          min_frac=0.40, w=120, h=28)}
 STALE_WAIT = 5
 STALE_TRIES = 2
-STALE_HOLD = 1.5
+STALE_HOLD = 0.6
 
 
 def panel_now():
@@ -2333,6 +2346,7 @@ def wait_screen(gsi, pick, ready):
                                    or SCREEN_TIMEOUT)
     while True:
         guard()
+        watch_screen(gsi)
         state = gsi.state
         if state and state in STEP_PAST.get(pick, ()):
             return "past"
@@ -2436,13 +2450,64 @@ def relobby(gsi):
     menu_sync("remenu")
 
 
-def clear_lobby(gsi):
-    for _ in range(STALE_TRIES):
-        if not stale_panel(gsi):
-            return
-        if not leave_stale_game():
-            return
-        nap(3)
+SEEN = {}
+
+
+def screen_name():
+    if panel_now():
+        return "панель «у вас уже есть активная игра»"
+    if at_difficulty():
+        return "экран сложности"
+    if at_hero():
+        return "выбор героя"
+    if at_server_screen():
+        return "лобби: кнопка поиска на месте"
+    return "ничего знакомого"
+
+
+def watch_screen(gsi=None, force=False):
+    gap = float(cfg["launch"].get("watch_s", 2) or 0)
+    if not gap:
+        return ""
+    now = time.time()
+    if not force and now - SEEN.get("at", 0) < gap:
+        return SEEN.get("name", "")
+    SEEN["at"] = now
+    name = screen_name()
+    if name == SEEN.get("name") and now - SEEN.get("said", 0) < 10:
+        return name
+    SEEN["name"], SEEN["said"] = name, now
+    state = (gsi.state if gsi is not None else "") or "молчит"
+    log("вижу: %s   (данные игры: %s)" % (name, state))
+    return name
+
+
+def watch_reset():
+    SEEN.clear()
+
+
+def lobby_ready(timeout, why="лобби аркады", gsi=None):
+    end = time.time() + float(timeout)
+    said = False
+    left = STALE_TRIES
+    while time.time() < end:
+        guard()
+        watch_screen(gsi)
+        if at_server_screen():
+            return True
+        if at_difficulty() or at_hero():
+            log("%s: экран уже дальше лобби — работаю с него" % why)
+            return True
+        if left > 0 and stale_panel():
+            left -= 1
+            leave_stale_game()
+            continue
+        if not said and time.time() > end - timeout + 20:
+            said = True
+            log("жду %s" % why)
+        time.sleep(0.5)
+    log("не дождался: %s" % why)
+    return False
 
 
 def menu_sync(what="menu"):
@@ -2475,12 +2540,14 @@ def play_one_game(gsi):
     if not launch_game(gsi):
         return False
 
-    clear_lobby(gsi)
+    watch_reset()
+    lobby_ready(cfg["launch"].get("lobby_wait_s", 90), gsi=gsi)
     while party_sync() == "wait":
         relobby(gsi)
         if not launch_game(gsi):
             return False
-        clear_lobby(gsi)
+        watch_reset()
+        lobby_ready(cfg["launch"].get("lobby_wait_s", 90), gsi=gsi)
     run_pregame(gsi)
 
     if not wait_for(lambda: gsi.state == "GAME_IN_PROGRESS", 300, "старт матча"):
