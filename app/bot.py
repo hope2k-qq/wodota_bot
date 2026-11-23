@@ -906,6 +906,8 @@ def wave_f1(st, by=""):
     key = r.get("key")
     if not key or not on("wave_start"):
         return
+    if not st.pop("f1_due", False):
+        return
     now = time.time()
     if now - st.get("wave_f1_at", 0) < float(r.get("min_gap_s", 3)):
         return
@@ -1278,6 +1280,11 @@ def track_waves(gsi, st):
                   wave_ult=False, wave_is_boss=boss)
         st["wave"] = st.get("wave", 0) + 1
         st["wave_new"] = True
+        if not st.get("seen_wave") or st.pop("boss_was", False):
+            st["f1_due"] = True
+        st["seen_wave"] = True
+        if boss:
+            st["boss_was"] = True
         st["wave_hist"] = (st.get("wave_hist") or [])[-5:] + [kind]
         log("ВОЛНА %d: %s%s +%d, время %d:%02d, герой ур.%d hp %s%%"
             % (st["wave"], creep_name(kind), "  <-- БОСС" if boss else "",
@@ -2079,9 +2086,10 @@ def launch_game(gsi):
         if not core.focus_dota():
             log("окно Dota так и не появилось")
             return False
-    if at_server_screen():
+    if at_server_screen() and not globals().get("LAUNCH_FRESH"):
         log("лобби аркады уже открыто — работаю прямо с экрана")
         return True
+    globals()["LAUNCH_FRESH"] = False
     log("захожу в кастомку")
     core.console_command(cfg["launch"]["command"], cfg["launch"]["console_key"])
     return wait_for(lambda: gsi.state != "" or at_server_screen(),
@@ -2096,11 +2104,14 @@ def difficulty_name():
     return str(n)
 
 
+GREEN_MARK = dict(point="server_pick", color="green", min_frac=0.18,
+                  w=56, h=56)
+
+
 def build_pregame():
     return [
         ("server_pick", "server_confirm", "ищу игру", 0.8, 3,
-         dict(point="server_pick", color="green", min_frac=0.18,
-              w=56, h=56)),
+         dict(GREEN_MARK)),
         ("difficulty_pick", "difficulty_confirm",
          "беру сложность %s" % difficulty_name(), 1.0, 3,
          dict(point="difficulty_confirm", color="gold", min_frac=0.10,
@@ -2244,12 +2255,24 @@ STALE = {"panel": dict(point="leave_game", color="dark_red",
                        min_frac=0.40, w=200, h=20),
          "confirm": dict(point="leave_back", color="green",
                          min_frac=0.40, w=120, h=28)}
-STALE_WAIT = 12
-STALE_TRIES = 3
+STALE_WAIT = 5
+STALE_TRIES = 2
+STALE_HOLD = 1.5
 
 
-def stale_panel():
-    return marker_up(STALE["panel"])
+def panel_now():
+    return bool(CO.get("leave_game")) and marker_up(STALE["panel"])
+
+
+def stale_panel(gsi):
+    if gsi is not None and gsi.state != "CUSTOM_GAME_SETUP":
+        return False
+    if not panel_now():
+        return False
+    if marker_up(GREEN_MARK):
+        return False
+    time.sleep(STALE_HOLD)
+    return panel_now()
 
 
 def leave_stale_game():
@@ -2264,7 +2287,8 @@ def leave_stale_game():
     if not core.wait_color(*CO[r["point"]], color=r["color"],
                            min_frac=r["min_frac"], w=r["w"], h=r["h"],
                            timeout=STALE_WAIT):
-        log("окно «покинуть игру?» не появилось")
+        log("окна «покинуть игру?» нет — значит, показалось, жду лобби "
+            "дальше")
         return False
     nap(float(cfg["launch"].get("screen_settle_s", 3)))
     with core.INPUT_LOCK:
@@ -2302,7 +2326,7 @@ def wait_screen(gsi, pick, ready):
         if ready and CO.get(ready["point"]):
             if marker_up(ready):
                 return "ok"
-            if pick == "server_pick" and CO.get("leave_game")                     and stale_panel():
+            if pick == "server_pick" and stale_panel(gsi):
                 return "stale"
             time.sleep(0.25)
             continue
@@ -2387,15 +2411,26 @@ def relobby(gsi):
     nap(float(party.conf_of(cfg).get("retry_s") or 20),
         "даю игре выйти в меню, чтобы зайти вместе")
     gsi.forget()
+    globals()["LAUNCH_FRESH"] = True
 
 
-def clear_lobby():
+def clear_lobby(gsi):
     for _ in range(STALE_TRIES):
-        if not CO.get("leave_game") or not stale_panel():
+        if not stale_panel(gsi):
             return
         if not leave_stale_game():
             return
         nap(3)
+
+
+def leave_to_menu(gsi, why):
+    log("выхожу в главное меню: %s" % why)
+    with core.INPUT_LOCK:
+        core.console_command("disconnect", cfg["launch"]["console_key"])
+    nap(float(cfg["launch"].get("menu_wait_s", 8)),
+        "жду главное меню, чтобы следующий заход был как первый")
+    gsi.forget()
+    globals()["LAUNCH_FRESH"] = True
 
 
 def play_one_game(gsi):
@@ -2404,17 +2439,18 @@ def play_one_game(gsi):
     if not launch_game(gsi):
         return False
 
-    clear_lobby()
+    clear_lobby(gsi)
     while party_sync() == "wait":
         relobby(gsi)
         if not launch_game(gsi):
             return False
-        clear_lobby()
+        clear_lobby(gsi)
     run_pregame(gsi)
 
     if not wait_for(lambda: gsi.state == "GAME_IN_PROGRESS", 300, "старт матча"):
         return False
     run_match(gsi)
+    leave_to_menu(gsi, "матч кончился")
     return True
 
 
@@ -2456,8 +2492,22 @@ def match_summary(st):
     sweep_record(st)
 
 
+def console_setup(why=""):
+    cmds = [str(c).strip() for c in (cfg["launch"].get("console_setup") or [])
+            if str(c).strip()]
+    if not cmds:
+        return False
+    line = "; ".join(cmds)
+    with core.INPUT_LOCK:
+        core.console_command(line, cfg["launch"]["console_key"])
+    log("настройки игры отправлены в консоль (%d команд)%s"
+        % (len(cmds), " — %s" % why if why else ""))
+    return True
+
+
 def run_match(gsi, done=0, bought=0):
     log("матч пошёл")
+    console_setup("начало матча")
     st = {"autocast": False, "ability_level": 0, "done": done, "learned": 0,
           "t0": time.time(), "bought": bought}
     st["peer_cycle"] = PARTY.peer_cycle if party_on() else None
@@ -3051,6 +3101,7 @@ def mode_run(limit=None):
                 st_once.clear()
                 log("матч уже идёт — подключаюсь к нему")
                 run_match(gsi)
+                leave_to_menu(gsi, "матч кончился")
                 played += 1
                 log("сыграно матчей: %d%s"
                     % (played, " из %d" % limit if limit else ""))
