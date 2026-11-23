@@ -2106,6 +2106,10 @@ def difficulty_name():
 
 GREEN_MARK = dict(point="server_pick", color="green", min_frac=0.18,
                   w=56, h=56)
+DIFF_MARK = dict(point="difficulty_confirm", color="gold", min_frac=0.10,
+                 w=240, h=56)
+HERO_MARK = dict(point="hero_screen", color="gold", min_frac=0.08,
+                 w=72, h=72)
 
 
 def build_pregame():
@@ -2118,8 +2122,7 @@ def build_pregame():
               w=240, h=56, wait_s=180, verify=True)),
         ("hero_pick", "hero_pick_confirm",
          "беру %s" % cfg.get("title", "героя"), 1.2, 2,
-         dict(point="hero_screen", color="gold", min_frac=0.08,
-              w=72, h=72)),
+         dict(HERO_MARK)),
     ]
 
 
@@ -2243,16 +2246,16 @@ STEP_PAST = {
     "difficulty_pick": IN_GAME,
     "hero_pick": IN_GAME,
 }
-DIFF_MARK = dict(point="difficulty_confirm", color="gold", min_frac=0.10,
-                 w=240, h=56)
 
 
 def diff_window():
-    return bool(CO.get("difficulty_confirm")) and marker_up(DIFF_MARK)
+    return at_difficulty()
 
 
 STALE = {"panel": dict(point="leave_game", color="dark_red",
                        min_frac=0.40, w=200, h=20),
+         "back": dict(point="leave_return", color="green",
+                      min_frac=0.50, w=160, h=20),
          "confirm": dict(point="leave_back", color="green",
                          min_frac=0.40, w=120, h=28)}
 STALE_WAIT = 5
@@ -2261,15 +2264,23 @@ STALE_HOLD = 1.5
 
 
 def panel_now():
-    return bool(CO.get("leave_game")) and marker_up(STALE["panel"])
+    if not CO.get("leave_game") or not CO.get("leave_return"):
+        return False
+    return marker_up(STALE["back"]) and marker_up(STALE["panel"])
 
 
-def stale_panel(gsi):
-    if gsi is not None and gsi.state != "CUSTOM_GAME_SETUP":
+def at_difficulty():
+    return bool(CO.get("difficulty_confirm")) and marker_up(DIFF_MARK)
+
+
+def at_hero():
+    return bool(CO.get("hero_screen")) and marker_up(HERO_MARK)
+
+
+def stale_panel(gsi=None):
+    if at_difficulty() or at_hero():
         return False
     if not panel_now():
-        return False
-    if marker_up(GREEN_MARK):
         return False
     time.sleep(STALE_HOLD)
     return panel_now()
@@ -2309,6 +2320,14 @@ def one_wait(pick, slice_s):
                               stable_s=1.5, min_wait=3.0)
 
 
+def screen_past(pick):
+    if pick == "server_pick":
+        return at_difficulty() or at_hero()
+    if pick == "difficulty_pick":
+        return at_hero() and not at_difficulty()
+    return False
+
+
 def wait_screen(gsi, pick, ready):
     deadline = time.time() + float((ready or {}).get("wait_s")
                                    or SCREEN_TIMEOUT)
@@ -2317,10 +2336,12 @@ def wait_screen(gsi, pick, ready):
         state = gsi.state
         if state and state in STEP_PAST.get(pick, ()):
             return "past"
+        if screen_past(pick):
+            return "past"
         left = deadline - time.time()
         if left <= 0:
             return ""
-        if pick == "hero_pick" and diff_window():
+        if pick == "hero_pick" and at_difficulty():
             time.sleep(0.5)
             continue
         if ready and CO.get(ready["point"]):
@@ -2412,6 +2433,7 @@ def relobby(gsi):
         "даю игре выйти в меню, чтобы зайти вместе")
     gsi.forget()
     globals()["LAUNCH_FRESH"] = True
+    menu_sync("remenu")
 
 
 def clear_lobby(gsi):
@@ -2423,6 +2445,19 @@ def clear_lobby(gsi):
         nap(3)
 
 
+def menu_sync(what="menu"):
+    if not party_on():
+        return
+    conf = party.conf_of(cfg)
+    PARTY.say(what)
+    wait = float(conf.get("menu_sync_s") or 180)
+    if PARTY.wait(what, wait, "напарника в главном меню", guard):
+        log("пати: оба в меню — дальше идём разом")
+    else:
+        log("пати: напарник в меню не отметился за %d с — иду по своим "
+            "часам" % round(wait))
+
+
 def leave_to_menu(gsi, why):
     log("выхожу в главное меню: %s" % why)
     with core.INPUT_LOCK:
@@ -2431,6 +2466,7 @@ def leave_to_menu(gsi, why):
         "жду главное меню, чтобы следующий заход был как первый")
     gsi.forget()
     globals()["LAUNCH_FRESH"] = True
+    menu_sync("menu")
 
 
 def play_one_game(gsi):
