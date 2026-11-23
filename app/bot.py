@@ -1991,9 +1991,13 @@ def party_ready():
     if not party_on() or PARTY.alive():
         return
     conf = party.conf_of(cfg)
-    if not wait_for(PARTY.alive, float(conf.get("wait_s") or 300),
-                    "напарника на связи"):
-        log("пати: напарника не слышно — захожу один")
+    while not wait_for(PARTY.alive, float(conf.get("wait_s") or 300),
+                       "напарника на связи"):
+        if not conf.get("solo_never", True):
+            log("пати: напарника не слышно — захожу один")
+            return
+        log("пати: напарника не слышно — одному не играю, жду дальше")
+        guard()
 
 
 def party_sync():
@@ -2006,12 +2010,20 @@ def party_sync():
         at_server_screen, float(conf.get("lobby_wait_s") or 60),
         "зелёную кнопку в лобби")
     if not ready:
+        if conf.get("solo_never", True):
+            log("пати: лобби так и не прорисовалось — выходим и заходим "
+                "заново")
+            PARTY.say("reset")
+            return "wait"
         log("пати: лобби так и не прорисовалось — в этот раз играю соло")
         return False
     set_lobby_mode(conf.get("size") or "duo")
     PARTY.hero = cfg.get("hero_file") or cfg.get("hero") or ""
     together, press = party.handshake(PARTY, conf, party_invite,
                                       party_accept, guard)
+    if together == "wait":
+        PRESS_SERVER, TOGETHER = True, False
+        return "wait"
     PRESS_SERVER, TOGETHER = press, together
     return together
 
@@ -2368,13 +2380,36 @@ def run_pregame(gsi):
             PARTY.say("hero")
 
 
+def relobby(gsi):
+    log("пати: выхожу из лобби — зайдём заново вместе")
+    with core.INPUT_LOCK:
+        core.console_command("disconnect", cfg["launch"]["console_key"])
+    nap(float(party.conf_of(cfg).get("retry_s") or 20),
+        "даю игре выйти в меню, чтобы зайти вместе")
+    gsi.forget()
+
+
+def clear_lobby():
+    for _ in range(STALE_TRIES):
+        if not CO.get("leave_game") or not stale_panel():
+            return
+        if not leave_stale_game():
+            return
+        nap(3)
+
+
 def play_one_game(gsi):
     hold_off()
     party_ready()
     if not launch_game(gsi):
         return False
 
-    party_sync()
+    clear_lobby()
+    while party_sync() == "wait":
+        relobby(gsi)
+        if not launch_game(gsi):
+            return False
+        clear_lobby()
     run_pregame(gsi)
 
     if not wait_for(lambda: gsi.state == "GAME_IN_PROGRESS", 300, "старт матча"):

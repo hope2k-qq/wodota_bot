@@ -263,6 +263,15 @@ def read_state(path=STATE_FILE):
 
 
 
+def alone(link, conf, why):
+    if conf.get("solo_never", True):
+        log("пати: %s — одному не играю, выходим и заходим заново" % why)
+        link.say("reset")
+        return "wait", True
+    log("пати: %s — играю этот матч соло" % why)
+    return False, True
+
+
 def handshake(link, conf, invite, accept, tick=None):
     wait_s = float(conf.get("wait_s") or 300)
     accept_s = float(conf.get("accept_wait_s") or 90)
@@ -272,31 +281,44 @@ def handshake(link, conf, invite, accept, tick=None):
     link.say("lobby")
 
     if link.role == "second":
-        got = link.wait_any(("invited", "go"), wait_s, "мейна в лобби", tick)
+        got = link.wait_any(("invited", "go", "reset"), wait_s,
+                            "мейна в лобби", tick)
+        if got == "reset":
+            return alone(link, conf, "мейн пересобирается")
         if not got:
-            log("пати: мейн не позвал — играю этот матч соло")
-            return False, True
+            return alone(link, conf, "мейн не позвал")
         if link.saw("invited"):
             if not accept():
-                return False, True
+                return alone(link, conf, "не принял приглашение")
             link.together = True
         link.say("joined")
-        if not link.wait("go", accept_s, "мейна на поиске", tick):
+        got = link.wait_any(("go", "reset"), accept_s, "мейна на поиске",
+                            tick)
+        if got == "reset":
+            return alone(link, conf, "мейн пересобирается")
+        if not got:
+            if not link.together:
+                return alone(link, conf, "мейн не пошёл на поиск")
             return link.together, True
         press = together_press and link.cycle > 1
         log("пати: идём вместе%s" % ("" if press else " — поиск жмёт мейн"))
         return True, press
 
-    if not link.wait("lobby", wait_s, "напарника в лобби", tick):
-        log("пати: напарник не вышел в лобби — играю этот матч соло")
-        return False, True
+    got = link.wait_any(("lobby", "reset"), wait_s, "напарника в лобби",
+                        tick)
+    if got == "reset":
+        return alone(link, conf, "напарник пересобирается")
+    if not got:
+        return alone(link, conf, "напарник не вышел в лобби")
     if not link.together or conf.get("invite_each_match"):
         if not invite():
-            return False, True
+            return alone(link, conf, "позвать не вышло")
         link.say("invited")
-        if not link.wait("joined", accept_s, "приглашение принятым", tick):
-            log("пати: напарник не принял приглашение — играю соло")
-            return False, True
+        got = link.wait_any(("joined", "reset"), accept_s,
+                            "приглашение принятым", tick)
+        if got != "joined":
+            link.together = False
+            return alone(link, conf, "напарник не принял приглашение")
         link.together = True
     link.say("go")
     log("пати: вместе — жму поиск")
