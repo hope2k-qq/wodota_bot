@@ -1294,7 +1294,9 @@ def track_waves(gsi, st):
                   wave_ult=False, wave_is_boss=boss)
         st["wave"] = st.get("wave", 0) + 1
         st["wave_new"] = True
-        if not st.get("seen_wave") or st.pop("boss_was", False):
+        after_boss = st.pop("boss_was", False)
+        every = (REACT.get("wave_start") or {}).get("every_wave")
+        if every or not st.get("seen_wave") or after_boss:
             st["f1_due"] = True
         st["seen_wave"] = True
         if boss:
