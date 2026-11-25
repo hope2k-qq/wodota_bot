@@ -386,5 +386,13 @@
  "boss_earth_spirit": "Каолин, Дух Земли",
  "boss_elder_titan": "Древний Титан",
  "npc_woda_arena_earth_spirit_stone_pve": "Каменный Осколок",
- "npc_woda_arena_elder_titan_spirit_pve": "Астральный Дух"
+ "npc_woda_arena_elder_titan_spirit_pve": "Астральный Дух",
+ "boss_viper": "Ядовитый Вайпер",
+ "boss_viper_pve": "Ядовитый Вайпер",
+ "boss_necrolyte": "Ротунд'йер, Епископ Мора",
+ "boss_necrolyte_pve": "Ротунд'йер, Епископ Мора",
+ "npc_woda_creep115": "Ядовитый Хамелеон",
+ "npc_woda_creep115_pve": "Ядовитый Хамелеон",
+ "npc_woda_creep116": "Болотный Крокодил",
+ "npc_woda_creep116_pve": "Болотный Крокодил"
 }

@@ -1,6 +1,6 @@
 {
  "_": "Справочник для пульта, пересобрать: py gamedata.py. Цена посчитана как в игре — рецепт плюс всё, из чего он собран. Это цена покупки с нуля; когда часть компонентов уже куплена строками выше, платить надо меньше, и тогда главнее то, что бот замерил сам (prices.json).",
- "addon_dir": "C:\\hope2k\\custom_3",
+ "addon_dir": "C:/hope2k/custom_4",
  "heroes": [
   {
    "name": "npc_dota_hero_abaddon",
@@ -159,6 +159,10 @@
    "title": "Meepo"
   },
   {
+   "name": "npc_dota_hero_mirana",
+   "title": "Mirana"
+  },
+  {
    "name": "npc_dota_hero_monkey_king",
    "title": "Monkey King"
   },
@@ -271,8 +275,16 @@
    "title": "Spirit Breaker"
   },
   {
+   "name": "npc_dota_hero_sven",
+   "title": "Sven"
+  },
+  {
    "name": "npc_dota_hero_techies",
    "title": "Techies"
+  },
+  {
+   "name": "npc_dota_hero_templar_assassin",
+   "title": "Templar Assassin"
   },
   {
    "name": "npc_dota_hero_terrorblade",
@@ -470,6 +482,11 @@
    "cost": 1400
   },
   {
+   "name": "item_balmhook",
+   "title": "Balmhook",
+   "cost": 1050
+  },
+  {
    "name": "item_banana_custom",
    "title": "Banana",
    "cost": 2100
@@ -537,7 +554,7 @@
   {
    "name": "item_bloodthorn_custom",
    "title": "Bloodthorn",
-   "cost": 6400
+   "cost": 6250
   },
   {
    "name": "item_book_agi",
@@ -610,6 +627,11 @@
    "cost": 505
   },
   {
+   "name": "item_brick",
+   "title": "Brick",
+   "cost": 700
+  },
+  {
    "name": "item_broadsword",
    "title": "Broadsword",
    "cost": 1000
@@ -642,7 +664,7 @@
   {
    "name": "item_ceremonial_robe",
    "title": "Ceremonial Robe",
-   "cost": 1400
+   "cost": 1050
   },
   {
    "name": "item_chainmail",
@@ -692,12 +714,12 @@
   {
    "name": "item_cloak_of_flames",
    "title": "Cloak of Flames",
-   "cost": 1050
+   "cost": 1400
   },
   {
    "name": "item_conjurers_catalyst",
    "title": "Conjurers Catalyst",
-   "cost": 1400
+   "cost": 1750
   },
   {
    "name": "item_consecrated_wraps",
@@ -745,11 +767,6 @@
    "cost": 5200
   },
   {
-   "name": "item_dagger_of_ristul",
-   "title": "Dagger Of Ristul",
-   "cost": 350
-  },
-  {
    "name": "item_dagon",
    "title": "Dagon",
    "cost": 3000
@@ -777,7 +794,7 @@
   {
    "name": "item_dandelion_amulet",
    "title": "Dandelion Amulet",
-   "cost": 1400
+   "cost": 1050
   },
   {
    "name": "item_defiant_shell",
@@ -793,11 +810,6 @@
    "name": "item_desolator",
    "title": "Desolator",
    "cost": 3500
-  },
-  {
-   "name": "item_desolator_2",
-   "title": "Desolator 2",
-   "cost": 1750
   },
   {
    "name": "item_dezun_bloodrite",
@@ -880,11 +892,6 @@
    "cost": 4925
   },
   {
-   "name": "item_duelist_gloves",
-   "title": "Duelist Gloves",
-   "cost": 350
-  },
-  {
    "name": "item_dust",
    "title": "Dust of Appearance",
    "cost": 80
@@ -953,11 +960,6 @@
    "name": "item_essence_distiller",
    "title": "Essence Distiller",
    "cost": 1830
-  },
-  {
-   "name": "item_essence_ring",
-   "title": "Essence Ring",
-   "cost": 700
   },
   {
    "name": "item_eternal_ghost",
@@ -1030,9 +1032,9 @@
    "cost": 1750
   },
   {
-   "name": "item_flayers_bota",
-   "title": "Flayers Bota",
-   "cost": 1400
+   "name": "item_flicker",
+   "title": "Flicker",
+   "cost": 1750
   },
   {
    "name": "item_fluffy_hat",
@@ -1095,24 +1097,14 @@
    "cost": 1500
   },
   {
-   "name": "item_giant_maul",
-   "title": "Giant Maul",
-   "cost": 1400
-  },
-  {
    "name": "item_giants_ring",
    "title": "Giant's Ring",
-   "cost": 2100
+   "cost": 1750
   },
   {
    "name": "item_gungir",
    "title": "Gleipnir",
    "cost": 2400
-  },
-  {
-   "name": "item_glimmer_shield",
-   "title": "Glimmer Boots",
-   "cost": 4300
   },
   {
    "name": "item_glimmer_cape",
@@ -1123,6 +1115,11 @@
    "name": "item_glimmer_cape_custom",
    "title": "Glimmer Cape",
    "cost": 2150
+  },
+  {
+   "name": "item_glimmer_shield",
+   "title": "Glimmer Lens",
+   "cost": 4675
   },
   {
    "name": "item_gloves",
@@ -1162,7 +1159,7 @@
   {
    "name": "item_gunpowder_gauntlets",
    "title": "Gunpowder Gauntlets",
-   "cost": 1050
+   "cost": 700
   },
   {
    "name": "item_hand_of_midas",
@@ -1177,10 +1174,15 @@
   {
    "name": "item_harmonizer",
    "title": "Harmonizer",
-   "cost": 1750
+   "cost": 1050
   },
   {
    "name": "item_harpoon",
+   "title": "Harpoon",
+   "cost": 4700
+  },
+  {
+   "name": "item_harpoon_custom",
    "title": "Harpoon",
    "cost": 4700
   },
@@ -1240,6 +1242,11 @@
    "cost": 2400
   },
   {
+   "name": "item_helm_of_the_hivemind",
+   "title": "Helm Of The Hivemind",
+   "cost": 1400
+  },
+  {
    "name": "item_helm_of_the_overlord",
    "title": "Helm of the Overlord",
    "cost": 5925
@@ -1277,12 +1284,17 @@
   {
    "name": "item_idol_of_screeauk",
    "title": "Idol Of Screeauk",
-   "cost": 1400
+   "cost": 1050
   },
   {
    "name": "item_illusionsts_cape",
    "title": "Illusionist's Cape",
    "cost": 1400
+  },
+  {
+   "name": "item_imp_claw",
+   "title": "Imp Claw",
+   "cost": 700
   },
   {
    "name": "item_infused_raindrop",
@@ -1317,7 +1329,7 @@
   {
    "name": "item_jidi_pollen_bag",
    "title": "Jidi Pollen Bag",
-   "cost": 1050
+   "cost": 700
   },
   {
    "name": "item_kaya",
@@ -1402,7 +1414,7 @@
   {
    "name": "item_mana_draught",
    "title": "Mana Draught",
-   "cost": 700
+   "cost": 350
   },
   {
    "name": "item_mana_radiance",
@@ -1447,7 +1459,7 @@
   {
    "name": "item_metamorphic_mandible",
    "title": "Metamorphic Mandible",
-   "cost": 1400
+   "cost": 700
   },
   {
    "name": "item_meteor_hammer",
@@ -1458,6 +1470,11 @@
    "name": "item_meteor_lens",
    "title": "Meteor Lens",
    "cost": 5900
+  },
+  {
+   "name": "item_mind_breaker",
+   "title": "Mind Breaker",
+   "cost": 1400
   },
   {
    "name": "item_minotaur_horn",
@@ -1552,12 +1569,12 @@
   {
    "name": "item_necronomicon_custom",
    "title": "Necronomicon Archer",
-   "cost": 1050
+   "cost": 1400
   },
   {
    "name": "item_necronomicon_melee_custom",
    "title": "Necronomicon Warrior",
-   "cost": 700
+   "cost": 1400
   },
   {
    "name": "item_nemesis_curse",
@@ -1583,11 +1600,6 @@
    "name": "item_oblivion_staff",
    "title": "Oblivion Staff",
    "cost": 1625
-  },
-  {
-   "name": "item_occult_bracelet",
-   "title": "Occult Bracelet",
-   "cost": 350
   },
   {
    "name": "item_octarine_core",
@@ -1657,7 +1669,7 @@
   {
    "name": "item_partisans_brand_custom",
    "title": "Partisan's Brand",
-   "cost": 1050
+   "cost": 1400
   },
   {
    "name": "item_pavise",
@@ -1707,7 +1719,7 @@
   {
    "name": "item_pogo_stick",
    "title": "Pogo Stick",
-   "cost": 700
+   "cost": 350
   },
   {
    "name": "item_point_booster",
@@ -1718,11 +1730,6 @@
    "name": "item_polliwog_charm",
    "title": "Polliwog Charm",
    "cost": 350
-  },
-  {
-   "name": "item_poor_mans_shield",
-   "title": "Poor Mans Shield",
-   "cost": 700
   },
   {
    "name": "item_possessed_mask",
@@ -1742,12 +1749,12 @@
   {
    "name": "item_prophets_pendulum",
    "title": "Prophets Pendulum",
-   "cost": 1400
+   "cost": 1050
   },
   {
    "name": "item_psychic_headband",
    "title": "Psychic Headband",
-   "cost": 1050
+   "cost": 700
   },
   {
    "name": "item_pupils_gift",
@@ -1820,11 +1827,6 @@
    "cost": 3300
   },
   {
-   "name": "item_revenants_brooch_custom",
-   "title": "Revenant's Brooch 2",
-   "cost": 6200
-  },
-  {
    "name": "item_riftshadow_prism",
    "title": "Riftshadow Prism",
    "cost": 1750
@@ -1882,7 +1884,7 @@
   {
    "name": "item_safety_bubble",
    "title": "Safety Bubble",
-   "cost": 350
+   "cost": 700
   },
   {
    "name": "item_sobi_mask",
@@ -1910,14 +1912,9 @@
    "cost": 5200
   },
   {
-   "name": "item_searing_signet",
-   "title": "Searing Signet",
-   "cost": 700
-  },
-  {
    "name": "item_seeds_of_serenity",
    "title": "Seeds of Serenity",
-   "cost": 700
+   "cost": 350
   },
   {
    "name": "item_seer_stone",
@@ -2042,17 +2039,12 @@
   {
    "name": "item_spell_prism",
    "title": "Spell Prism",
-   "cost": 700
+   "cost": 1400
   },
   {
    "name": "item_spellslinger",
    "title": "Spellslinger",
-   "cost": 1050
-  },
-  {
-   "name": "item_spider_legs",
-   "title": "Spider Legs",
-   "cost": 1750
+   "cost": 700
   },
   {
    "name": "item_spirit_vessel",
@@ -2172,7 +2164,7 @@
   {
    "name": "item_unrelenting_eye",
    "title": "Unrelenting Eye",
-   "cost": 1050
+   "cost": 1400
   },
   {
    "name": "item_unwavering_condition",
@@ -2213,6 +2205,11 @@
    "name": "item_venom_song",
    "title": "Venom Song",
    "cost": 4050
+  },
+  {
+   "name": "item_vile_phial",
+   "title": "Vile Phial",
+   "cost": 1050
   },
   {
    "name": "item_vindicators_axe",
